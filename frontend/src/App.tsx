@@ -1,0 +1,60 @@
+import { NavLink, Route, Routes } from 'react-router-dom'
+import Dashboard from './pages/Dashboard'
+import ImportPage from './pages/ImportPage'
+import InventoryPage from './pages/InventoryPage'
+import POS from './pages/POS'
+import Products from './pages/Products'
+import ReportsPage from './pages/ReportsPage'
+import StockTakePage from './pages/StockTakePage'
+
+const nav = [
+  { to: '/', label: 'Dashboard' },
+  { to: '/pos', label: 'POS' },
+  { to: '/products', label: 'Sản phẩm' },
+  { to: '/inventory', label: 'Kho' },
+  { to: '/import', label: 'Nhập kho' },
+  { to: '/stock-take', label: 'Kiểm kho' },
+  { to: '/reports', label: 'Báo cáo' },
+]
+
+export default function App() {
+  return (
+    <div className="min-h-screen bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+      <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-3">
+          <div className="text-lg font-semibold tracking-tight">Hiệu thuốc · Kho & POS</div>
+          <nav className="flex flex-wrap gap-1">
+            {nav.map((n) => (
+              <NavLink
+                key={n.to}
+                to={n.to}
+                end={n.to === '/'}
+                className={({ isActive }) =>
+                  [
+                    'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-emerald-600 text-white'
+                      : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800',
+                  ].join(' ')
+                }
+              >
+                {n.label}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
+      </header>
+      <main className="mx-auto max-w-6xl px-4 py-8">
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/pos" element={<POS />} />
+          <Route path="/products" element={<Products />} />
+          <Route path="/inventory" element={<InventoryPage />} />
+          <Route path="/import" element={<ImportPage />} />
+          <Route path="/stock-take" element={<StockTakePage />} />
+          <Route path="/reports" element={<ReportsPage />} />
+        </Routes>
+      </main>
+    </div>
+  )
+}
