@@ -1,8 +1,20 @@
 backend/.venv/
 backend/data/*.db
+backend/app/data/*.db
 backend/**/__pycache__/
 *.pyc
+
+# PyInstaller artifacts
+backend/build/
+backend/dist/
+backend/*.spec
+
+# Tauri sidecar binaries (generated — do not commit large exe files)
+frontend/src-tauri/binaries/
+
+# Frontend
 frontend/node_modules/
 frontend/dist/
 frontend/src-tauri/target/
+
 .DS_Store
