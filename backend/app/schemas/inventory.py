@@ -8,6 +8,7 @@ class InventoryBatchRow(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    product_id: int
     batch_code: str
     expiry_date: date
     import_price: Decimal
@@ -22,5 +23,8 @@ class ProductInventoryOut(BaseModel):
     name: str
     sku: str
     unit: str
+    default_import_price: Decimal
+    default_sale_price: Decimal
+    conversion_rate: int
     total_quantity: int
     batches: list[InventoryBatchRow]

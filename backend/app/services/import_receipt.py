@@ -11,11 +11,21 @@ def create_import_receipt(
     *,
     receipt_date: date,
     created_by: str,
+    supplier: str | None = None,
+    is_debt: bool = False,
     lines: list[dict],
 ) -> ImportReceipt:
-    receipt = ImportReceipt(date=receipt_date, created_by=created_by)
+    receipt = ImportReceipt(
+        date=receipt_date,
+        created_by=created_by,
+        supplier=supplier,
+        is_debt=is_debt,
+        total_amount=Decimal("0"),
+    )
     db.add(receipt)
     db.flush()
+
+    running_total = Decimal("0")
 
     for line in lines:
         product = db.get(Product, line["product_id"])
@@ -59,6 +69,8 @@ def create_import_receipt(
         )
         db.add(item)
 
+        running_total += import_price * qty
+
         db.add(
             InventoryLog(
                 product_id=product.id,
@@ -69,6 +81,7 @@ def create_import_receipt(
             )
         )
 
+    receipt.total_amount = running_total
     db.commit()
     db.refresh(receipt)
     return receipt

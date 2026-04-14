@@ -27,7 +27,7 @@ npm install       # lần đầu
 npm run dev
 ```
 
-Mở `http://127.0.0.1:5173`.
+Mở `http://127.0.0.1:5173`. hoặc `http://localhost:5173/`
 
 ---
 
@@ -35,15 +35,17 @@ Mở `http://127.0.0.1:5173`.
 
 | Màn hình | Route | Mô tả |
 |----------|-------|-------|
-| Dashboard | `/` | Doanh thu/lợi nhuận hôm nay, cảnh báo tồn thấp & lô sắp hết hạn |
-| POS | `/pos` | Giỏ hàng, thanh toán theo **FEFO** (First Expired First Out) |
-| Sản phẩm | `/products` | Tạo + liệt kê + tìm kiếm sản phẩm |
-| Kho | `/inventory` | Tồn kho theo sản phẩm, xem chi tiết từng lô |
-| Nhập kho | `/import` | Phiếu nhập, gộp lô theo (sản phẩm, mã lô, HSD) |
+| Dashboard | `/` | Lối tắt nghiệp vụ nhanh, thống kê hôm nay, tồn thấp & lô sắp hết hạn |
+| POS | `/pos` | Giao diện bán hàng nhanh, quản lý giỏ, lưu phiếu nháp, hóa đơn chi tiết |
+| Hóa đơn | `/invoices` | Bảng quản lý hóa đơn riêng biệt với bộ lọc đa tiêu chí |
+| Sản phẩm | `/products` | Thêm trường **Quy đổi**, xóa sản phẩm (ẩn), thao tác Import/Export **EXCEL** hàng loạt |
+| Kho | `/inventory` | Bảng chi tiết: màu cảnh báo HSD (FEFO), giá vốn trung bình, số lượng tổng |
+| Nhập kho | `/import` | Tạo phiếu, **Ghi nợ** / **Trả nợ**, lịch sử phiếu với bộ lọc (trạng thái, tên, NCC) |
 | Kiểm kho | `/stock-take` | Nhập SL thực tế theo lô, tự điều chỉnh chênh lệch |
-| Báo cáo | `/reports` | Doanh thu/lợi nhuận/số HĐ theo kỳ, lô sắp hết hạn 30 ngày |
+| Báo cáo | `/reports` | Doanh thu, lợi nhuận, số HĐ theo kỳ, cảnh báo tồn/HSD |
 
 Trả hàng khách: `POST /api/returns/customer`
+Xóa sản phẩm (soft delete): `DELETE /api/products/{id}`
 
 ---
 

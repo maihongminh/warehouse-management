@@ -1,7 +1,9 @@
 import enum
 from datetime import date, datetime
+from decimal import Decimal
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -41,6 +43,7 @@ class Product(Base):
     unit: Mapped[str] = mapped_column(String(32), default="unit")
     default_import_price: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
     default_sale_price: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
+    conversion_rate: Mapped[int] = mapped_column(Integer, default=1)
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -73,6 +76,9 @@ class ImportReceipt(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     date: Mapped[date] = mapped_column(Date, nullable=False)
     created_by: Mapped[str] = mapped_column(String(128), default="system")
+    supplier: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_debt: Mapped[bool] = mapped_column(Boolean, default=False)
+    total_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=0)
 
     items: Mapped[list["ImportItem"]] = relationship(back_populates="receipt", cascade="all, delete-orphan")
 
@@ -88,6 +94,7 @@ class ImportItem(Base):
     import_price: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
 
     receipt: Mapped["ImportReceipt"] = relationship(back_populates="items")
+    product: Mapped["Product"] = relationship()
 
 
 class Sale(Base):
@@ -117,6 +124,7 @@ class SaleItem(Base):
     import_price_snapshot: Mapped[float | None] = mapped_column(Numeric(14, 2), nullable=True)
 
     sale: Mapped["Sale"] = relationship(back_populates="items")
+    product: Mapped["Product"] = relationship()
 
 
 class InventoryLog(Base):

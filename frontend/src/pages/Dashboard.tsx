@@ -30,11 +30,11 @@ export default function Dashboard() {
       </div>
 
       <section>
-        <h2 className="mb-3 text-lg font-medium text-zinc-900 dark:text-zinc-100">Bước tiếp theo (sau v1)</h2>
+        <h2 className="mb-3 text-lg font-medium text-zinc-900 dark:text-zinc-100">Truy cập nhanh</h2>
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <QuickLink to="/reports" title="Báo cáo" desc="Doanh thu, lợi nhuận theo kỳ, HĐ, lô sắp hết hạn." />
-          <QuickLink to="/stock-take" title="Kiểm kho" desc="Đếm thực tế theo lô, điều chỉnh tồn + log." />
-          <QuickLink to="/pos" title="POS" desc="Bán hàng FEFO, snapshot giá nhập." />
+          <QuickLink to="/pos" title="POS — Bán hàng" desc="Tạo đơn hàng nhanh, quản lý giỏ hàng và hóa đơn." />
+          <QuickLink to="/import" title="Nhập kho" desc="Thêm hàng mới, quản lý lưu lô và công nợ nhà cung cấp." />
+          <QuickLink to="/stock-take" title="Kiểm kho" desc="Kiểm đếm số lượng thực tế, tự động cân bằng tồn kho." />
         </ul>
       </section>
     </div>

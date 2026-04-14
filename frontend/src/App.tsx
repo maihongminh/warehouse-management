@@ -1,6 +1,7 @@
 import { NavLink, Route, Routes } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
 import ImportPage from './pages/ImportPage'
+import InvoicesPage from './pages/InvoicesPage'
 import InventoryPage from './pages/InventoryPage'
 import POS from './pages/POS'
 import Products from './pages/Products'
@@ -14,6 +15,7 @@ const nav = [
   { to: '/inventory', label: 'Kho' },
   { to: '/import', label: 'Nhập kho' },
   { to: '/stock-take', label: 'Kiểm kho' },
+  { to: '/invoices', label: 'Hóa đơn' },
   { to: '/reports', label: 'Báo cáo' },
 ]
 
@@ -21,8 +23,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-3">
-          <div className="text-lg font-semibold tracking-tight">Hiệu thuốc · Kho & POS</div>
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-3">
+          <div className="text-lg font-semibold tracking-tight">Hiệu thuốc · Kho &amp; POS</div>
           <nav className="flex flex-wrap gap-1">
             {nav.map((n) => (
               <NavLink
@@ -44,7 +46,7 @@ export default function App() {
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-8">
+      <main className="mx-auto max-w-7xl px-4 py-8">
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/pos" element={<POS />} />
@@ -52,6 +54,7 @@ export default function App() {
           <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/import" element={<ImportPage />} />
           <Route path="/stock-take" element={<StockTakePage />} />
+          <Route path="/invoices" element={<InvoicesPage />} />
           <Route path="/reports" element={<ReportsPage />} />
         </Routes>
       </main>

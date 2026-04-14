@@ -10,6 +10,7 @@ class ProductBase(BaseModel):
     unit: str = Field(default="unit", max_length=32)
     default_import_price: Decimal = Field(default=Decimal("0"))
     default_sale_price: Decimal = Field(default=Decimal("0"))
+    conversion_rate: int = Field(default=1, ge=1)
     is_active: bool = True
 
 
@@ -22,6 +23,7 @@ class ProductUpdate(BaseModel):
     unit: str | None = None
     default_import_price: Decimal | None = None
     default_sale_price: Decimal | None = None
+    conversion_rate: int | None = None
     is_active: bool | None = None
 
 

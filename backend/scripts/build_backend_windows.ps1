@@ -33,9 +33,11 @@ pyinstaller `
   --hidden-import app.api `
   --hidden-import app.services `
   --hidden-import app.schemas `
+  --hidden-import openpyxl `
   --collect-all fastapi `
   --collect-all uvicorn `
   --collect-all sqlalchemy `
+  --collect-all openpyxl `
   "app\desktop_server.py"
 
 Write-Host "Built: $dist\wm-backend.exe"

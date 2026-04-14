@@ -28,6 +28,9 @@ def inventory_by_product(
                 "name": p.name,
                 "sku": p.sku,
                 "unit": p.unit,
+                "default_import_price": p.default_import_price,
+                "default_sale_price": p.default_sale_price,
+                "conversion_rate": p.conversion_rate,
                 "total_quantity": total,
                 "batches": [InventoryBatchRow.model_validate(b) for b in batches],
             }

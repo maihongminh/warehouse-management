@@ -1,7 +1,8 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models import SaleStatus
 
@@ -23,10 +24,34 @@ class SaleItemOut(BaseModel):
 
     id: int
     product_id: int
+    product_name: str = ""
     batch_id: int | None
     quantity: int
     sale_price: Decimal
     import_price_snapshot: Decimal | None
+
+    @model_validator(mode="before")
+    @classmethod
+    def extract_product_name(cls, data: Any) -> Any:
+        """Khi khởi tạo từ ORM object, lấy tên sản phẩm từ relationship."""
+        if hasattr(data, "product") and data.product is not None:
+            # Set vào dict để pydantic đọc được
+            from pydantic import BaseModel as _BM
+            try:
+                # data là SQLAlchemy ORM instance — chuyển qua dict tạm
+                d = {
+                    "id": data.id,
+                    "product_id": data.product_id,
+                    "product_name": data.product.name if data.product else "",
+                    "batch_id": data.batch_id,
+                    "quantity": data.quantity,
+                    "sale_price": data.sale_price,
+                    "import_price_snapshot": data.import_price_snapshot,
+                }
+                return d
+            except Exception:
+                pass
+        return data
 
 
 class SaleOut(BaseModel):

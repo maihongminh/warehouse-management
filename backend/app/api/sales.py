@@ -30,7 +30,7 @@ def create_sale(body: SaleCreate, db: Session = Depends(get_db)) -> Sale:
     db.commit()
     return (
         db.query(Sale)
-        .options(selectinload(Sale.items))
+        .options(selectinload(Sale.items).selectinload(SaleItem.product))
         .filter(Sale.id == sale.id)
         .first()
     )
@@ -56,7 +56,7 @@ def list_sales(
 
 @router.get("/{sale_id}", response_model=SaleWithItemsOut)
 def get_sale(sale_id: int, db: Session = Depends(get_db)) -> Sale:
-    s = db.query(Sale).options(selectinload(Sale.items)).filter(Sale.id == sale_id).first()
+    s = db.query(Sale).options(selectinload(Sale.items).selectinload(SaleItem.product)).filter(Sale.id == sale_id).first()
     if not s:
         raise HTTPException(status_code=404, detail="Sale not found")
     return s
@@ -74,16 +74,24 @@ def complete_sale(
         raise HTTPException(status_code=400, detail=str(e)) from e
     s = (
         db.query(Sale)
-        .options(selectinload(Sale.items))
+        .options(selectinload(Sale.items).selectinload(SaleItem.product))
         .filter(Sale.id == sale.id)
         .first()
     )
     return {"sale": s, "message": "completed"}
 
 
-@router.post("/{sale_id}/cancel", response_model=SaleOut)
+@router.post("/{sale_id}/cancel", response_model=SaleWithItemsOut)
 def cancel_sale(sale_id: int, db: Session = Depends(get_db)) -> Sale:
     try:
-        return sale_svc.cancel_sale(db, sale_id)
+        sale_svc.cancel_sale(db, sale_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    # Reload with items + product relationships
+    s = (
+        db.query(Sale)
+        .options(selectinload(Sale.items).selectinload(SaleItem.product))
+        .filter(Sale.id == sale_id)
+        .first()
+    )
+    return s

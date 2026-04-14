@@ -15,6 +15,8 @@ class ImportLineIn(BaseModel):
 class ImportReceiptCreate(BaseModel):
     date: date
     created_by: str = "system"
+    supplier: str | None = None
+    is_debt: bool = False
     lines: list[ImportLineIn] = Field(..., min_length=1)
 
 
@@ -26,6 +28,16 @@ class ImportItemOut(BaseModel):
     batch_id: int
     quantity: int
     import_price: Decimal
+    product_name: str = ""
+
+    @classmethod
+    def from_orm_item(cls, item: object) -> "ImportItemOut":
+        obj = cls.model_validate(item)
+        try:
+            obj.product_name = item.product.name  # type: ignore[union-attr]
+        except Exception:
+            obj.product_name = ""
+        return obj
 
 
 class ImportReceiptOut(BaseModel):
@@ -34,4 +46,19 @@ class ImportReceiptOut(BaseModel):
     id: int
     date: date
     created_by: str
+    supplier: str | None
+    is_debt: bool
+    total_amount: Decimal
     items: list[ImportItemOut]
+
+
+class ImportReceiptListItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    date: date
+    created_by: str
+    supplier: str | None
+    is_debt: bool
+    total_amount: Decimal
+    item_count: int = 0

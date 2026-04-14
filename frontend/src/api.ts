@@ -39,4 +39,24 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>
 }
 
+export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+  const res = await fetch(`${base}${path}`, {
+    method: 'POST',
+    body: formData,
+  })
+  if (!res.ok) throw new Error(await parseError(res))
+  return res.json() as Promise<T>
+}
+
+export async function apiGetBlob(path: string): Promise<Blob> {
+  const res = await fetch(`${base}${path}`)
+  if (!res.ok) throw new Error(await parseError(res))
+  return res.blob()
+}
+
+export async function apiDelete(path: string): Promise<void> {
+  const res = await fetch(`${base}${path}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(await parseError(res))
+}
+
 export { base as apiBase }
