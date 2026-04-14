@@ -21,7 +21,7 @@ def create_sale(body: SaleCreate, db: Session = Depends(get_db)) -> Sale:
             SaleItem(
                 sale_id=sale.id,
                 product_id=line.product_id,
-                batch_id=None,
+                batch_id=line.batch_id,
                 quantity=line.quantity,
                 sale_price=line.sale_price,
                 import_price_snapshot=None,
@@ -58,7 +58,7 @@ def list_sales(
 def get_sale(sale_id: int, db: Session = Depends(get_db)) -> Sale:
     s = db.query(Sale).options(selectinload(Sale.items).selectinload(SaleItem.product)).filter(Sale.id == sale_id).first()
     if not s:
-        raise HTTPException(status_code=404, detail="Sale not found")
+        raise HTTPException(status_code=404, detail="Không tìm thấy phiếu bán hàng")
     return s
 
 

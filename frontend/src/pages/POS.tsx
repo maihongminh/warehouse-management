@@ -3,7 +3,10 @@ import { apiGet, apiPost } from '../api'
 import type { Batch, Product, SaleWithItems } from '../types'
 
 type CartLine = {
+  key: string
   product: Product
+  batches: Batch[]
+  selected_batch_id: number | null
   quantity: number
   sale_price: string
 }
@@ -68,14 +71,33 @@ export default function POS() {
   const addToCart = (p: Product) => {
     setErr(null)
     setCart((c) => {
-      const ex = c.find((x) => x.product.id === p.id)
-      if (ex) return c.map((x) => x.product.id === p.id ? { ...x, quantity: x.quantity + 1 } : x)
-      return [...c, { product: p, quantity: 1, sale_price: p.default_sale_price }]
+      const ex = c.find((x) => x.product.id === p.id && x.selected_batch_id === null)
+      if (ex) return c.map((x) => x.key === ex.key ? { ...x, quantity: x.quantity + 1 } : x)
+      
+      const newLineKey = crypto.randomUUID()
+      const bData = selected?.id === p.id ? batches : []
+      
+      if (bData.length === 0) {
+        apiGet<Batch[]>(`/products/${p.id}/batches`)
+          .then(res => {
+            setCart(curr => curr.map(item => item.key === newLineKey ? { ...item, batches: res } : item))
+          })
+          .catch(() => {})
+      }
+      
+      return [...c, { 
+        key: newLineKey,
+        product: p, 
+        batches: bData,
+        selected_batch_id: null,
+        quantity: 1, 
+        sale_price: p.default_sale_price 
+      }]
     })
   }
 
-  const removeFromCart = (productId: number) => {
-    setCart((c) => c.filter((x) => x.product.id !== productId))
+  const removeFromCart = (lineKey: string) => {
+    setCart((c) => c.filter((x) => x.key !== lineKey))
   }
 
   const clearCart = () => {
@@ -99,7 +121,12 @@ export default function POS() {
       const sale = await apiPost<SaleWithItems>('/sales', {
         date: today,
         created_by: 'pos',
-        lines: cart.map((l) => ({ product_id: l.product.id, quantity: l.quantity, sale_price: l.sale_price })),
+        lines: cart.map((l) => ({ 
+          product_id: l.product.id, 
+          batch_id: l.selected_batch_id,
+          quantity: l.quantity, 
+          sale_price: l.sale_price 
+        })),
       })
       setDraftSale(sale)
       setResultSale(null)
@@ -123,7 +150,12 @@ export default function POS() {
         const sale = await apiPost<SaleWithItems>('/sales', {
           date: today,
           created_by: 'pos',
-          lines: cart.map((l) => ({ product_id: l.product.id, quantity: l.quantity, sale_price: l.sale_price })),
+          lines: cart.map((l) => ({ 
+            product_id: l.product.id, 
+            batch_id: l.selected_batch_id,
+            quantity: l.quantity, 
+            sale_price: l.sale_price 
+          })),
         })
         saleId = sale.id
       }
@@ -338,7 +370,7 @@ export default function POS() {
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
               {cart.map((l) => (
                 <div
-                  key={l.product.id}
+                  key={l.key}
                   className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900"
                 >
                   {/* Row 1: Product name + delete */}
@@ -349,12 +381,30 @@ export default function POS() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => removeFromCart(l.product.id)}
+                      onClick={() => removeFromCart(l.key)}
                       className="mt-0.5 flex-shrink-0 rounded-full p-1 text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
                       title="Xóa khỏi giỏ"
                     >
                       ✕
                     </button>
+                  </div>
+                  {/* Row 1.5: Batch select (override FEFO) */}
+                  <div className="mb-3">
+                    <select
+                      className="w-full rounded border border-zinc-300 bg-zinc-50 px-2 py-1 text-xs text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                      value={l.selected_batch_id || ''}
+                      onChange={(e) => {
+                        const val = e.target.value ? Number(e.target.value) : null
+                        setCart((c) => c.map((x) => (x.key === l.key ? { ...x, selected_batch_id: val } : x)))
+                      }}
+                    >
+                      <option value="">Tự động (FEFO) - Ưu tiên lô cận Date</option>
+                      {l.batches.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          Lô: {b.batch_code || `ID ${b.id}`} ({b.quantity_remaining}) — HSD: {b.expiry_date}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   {/* Row 2: SL | Đơn giá | Thành tiền */}
                   <div className="grid grid-cols-3 gap-2 items-end">
@@ -367,7 +417,7 @@ export default function POS() {
                         value={l.quantity}
                         onChange={(e) => {
                           const n = Math.max(1, Number(e.target.value) || 1)
-                          setCart((c) => c.map((x) => x.product.id === l.product.id ? { ...x, quantity: n } : x))
+                          setCart((c) => c.map((x) => x.key === l.key ? { ...x, quantity: n } : x))
                         }}
                       />
                     </div>
@@ -378,7 +428,7 @@ export default function POS() {
                         value={l.sale_price}
                         onChange={(e) => {
                           const v = e.target.value
-                          setCart((c) => c.map((x) => x.product.id === l.product.id ? { ...x, sale_price: v } : x))
+                          setCart((c) => c.map((x) => x.key === l.key ? { ...x, sale_price: v } : x))
                         }}
                       />
                     </div>

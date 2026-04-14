@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import type { FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { apiGet, apiPatch, apiPost } from '../api'
+import { apiGet, apiPatch, apiPost /*, apiUpload */ } from '../api'
 import type { ImportReceiptListItem, ImportReceiptOut, Product } from '../types'
 
 type Line = {
@@ -55,6 +55,49 @@ export default function ImportPage() {
   const [supplier, setSupplier] = useState('')
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+
+  // const fileInputRef = useRef<HTMLInputElement>(null)
+  // const [parsingExcel, setParsingExcel] = useState(false)
+
+  /*
+  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setParsingExcel(true)
+    setErr(null)
+    setMsg(null)
+    const fd = new FormData()
+    fd.append('file', file)
+    try {
+      const res = await apiUpload<{ lines: any[]; errors: string[] }>('/import-receipts/parse-excel', fd)
+      if (res.lines && res.lines.length > 0) {
+        const newLines: Line[] = res.lines.map((row) => ({
+          key: crypto.randomUUID(),
+          product_id: row.product_id,
+          product_summary: row.product_summary,
+          pickQuery: '',
+          quantity: row.quantity,
+          import_price: row.import_price,
+          batch_code: row.batch_code,
+          expiry_date: row.expiry_date,
+        }))
+        setLines(newLines)
+      }
+      if (res.errors && res.errors.length > 0) {
+        setErr(`Có ${res.errors.length} lỗi: ` + res.errors.join(' | '))
+      } else if (res.lines.length > 0) {
+        setMsg(`✅ Nạp thành công ${res.lines.length} dòng từ file.`)
+      } else {
+        setErr('Không tìm thấy dòng thông tin nào hợp lệ.')
+      }
+    } catch (ex: any) {
+      setErr(ex.message)
+    } finally {
+      setParsingExcel(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+  */
 
   // History
   const [history, setHistory] = useState<ImportReceiptListItem[]>([])
@@ -222,6 +265,27 @@ export default function ImportPage() {
             <li>Sau khi ghi nhận, kiểm tra tồn tại màn <em>Kho</em> hoặc dùng <em>POS</em> để bán.</li>
           </ol>
         </div>
+
+        {/* 
+        <div className="flex items-center gap-4 mb-4">
+          <input
+            type="file"
+            accept=".xlsx"
+            ref={fileInputRef}
+            onChange={handleExcelUpload}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={parsingExcel}
+            className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {parsingExcel ? 'Đang đọc...' : 'Nhập từ Excel'}
+          </button>
+          <span className="text-xs text-zinc-500">Hỗ trợ tự động điền Tồn kho, Mã lô, HSD theo mã SKU.</span>
+        </div>
+        */}
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

@@ -36,16 +36,19 @@ Mở `http://127.0.0.1:5173`. hoặc `http://localhost:5173/`
 | Màn hình | Route | Mô tả |
 |----------|-------|-------|
 | Dashboard | `/` | Lối tắt nghiệp vụ nhanh, thống kê hôm nay, tồn thấp & lô sắp hết hạn |
-| POS | `/pos` | Giao diện bán hàng nhanh, quản lý giỏ, lưu phiếu nháp, hóa đơn chi tiết |
+| POS | `/pos` | Giao diện bán hàng nhanh, quản lý giỏ, lưu phiếu nháp, hóa đơn chi tiết. **Cho phép chọn Lô xuất kho thủ công (ghi đè FEFO)**. |
 | Hóa đơn | `/invoices` | Bảng quản lý hóa đơn riêng biệt với bộ lọc đa tiêu chí |
 | Sản phẩm | `/products` | Thêm trường **Quy đổi**, xóa sản phẩm (ẩn), thao tác Import/Export **EXCEL** hàng loạt |
 | Kho | `/inventory` | Bảng chi tiết: màu cảnh báo HSD (FEFO), giá vốn trung bình, số lượng tổng |
-| Nhập kho | `/import` | Tạo phiếu, **Ghi nợ** / **Trả nợ**, lịch sử phiếu với bộ lọc (trạng thái, tên, NCC) |
+| Nhập kho | `/import` | Tạo phiếu, **Ghi nợ** / **Trả nợ**, lịch sử phiếu với bộ lọc. Hỗ trợ **Nhập từ Excel** (tạm ẩn). |
 | Kiểm kho | `/stock-take` | Nhập SL thực tế theo lô, tự điều chỉnh chênh lệch |
-| Báo cáo | `/reports` | Doanh thu, lợi nhuận, số HĐ theo kỳ, cảnh báo tồn/HSD |
+| Báo cáo | `/reports` | Doanh thu, lợi nhuận thực tế theo Lô, số HĐ theo kỳ, cảnh báo tồn/HSD |
 
-Trả hàng khách: `POST /api/returns/customer`
-Xóa sản phẩm (soft delete): `DELETE /api/products/{id}`
+---
+
+## Ghi chú hệ thống v0.2.1
+- **Việt hóa**: Toàn bộ thông báo lỗi và validation từ Backend đã được chuyển sang Tiếng Việt.
+- **Dọn dẹp UI**: Loại bỏ emoji icon gồ ghề ở các nút Excel, bo góc mượt mà hơn.
 
 ---
 
@@ -56,20 +59,11 @@ Xóa sản phẩm (soft delete): `DELETE /api/products/{id}`
 Tóm tắt 3 bước (chạy trên Windows):
 
 ```powershell
-# Bước 1 — Build backend exe (PyInstaller)
-cd backend && .venv\Scripts\activate
-powershell -ExecutionPolicy Bypass -File scripts\build_backend_windows.ps1
-
-# Bước 2 — Copy sidecar vào Tauri bundle
-cd frontend
-powershell -ExecutionPolicy Bypass -File scripts\prepare_sidecar_windows.ps1
-
-# Bước 3 — Build installer
-$env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
-npm run tauri:build
+# Sử dụng script tự động tại thư mục gốc:
+powershell -ExecutionPolicy Bypass -File build-release.ps1
 ```
 
-**Output**: `frontend\src-tauri\target\release\bundle\nsis\Warehouse POS_0.1.0_x64-setup.exe`
+**Output**: `frontend\src-tauri\target\release\bundle\nsis\Warehouse POS_0.2.1_x64-setup.exe`
 
 **Data người dùng** lưu tại: `%APPDATA%\vn.local.warehouse.pos\app.db`
 
@@ -77,13 +71,10 @@ npm run tauri:build
 
 ## Desktop Dev (Tauri cửa sổ native)
 
-Cần Rust đã cài ([rustup.rs](https://rustup.rs/)) + VS Build Tools.
-
 ```powershell
-# Terminal 1 — chạy backend như bình thường
+# Terminal 1 — chạy backend như bình thường (uvicorn)
 # Terminal 2:
 cd frontend
-$env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
 npm run tauri:dev
 ```
 
@@ -106,29 +97,26 @@ warehouse-management/
 ├── backend/
 │   ├── app/
 │   │   ├── api/          — routers: products, sales, inventory, reports, ...
-│   │   ├── services/     — FEFO sale, reports, import, stock adjust, return
+│   │   ├── services/     — FEFO sale (với ghi đè Lô), reports, import, stock adjust, return
 │   │   ├── models.py     — SQLAlchemy models
 │   │   ├── schemas/      — Pydantic schemas
 │   │   └── desktop_server.py  — entry point cho PyInstaller
 │   ├── scripts/
-│   │   └── build_backend_windows.ps1  — build wm-backend.exe
+│   │   └── build_backend_windows.ps1
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── pages/        — Dashboard, POS, Products, Inventory, Import, StockTake, Reports
-│   │   ├── api.ts        — fetch wrapper
-│   │   ├── types.ts      — TypeScript types
-│   │   └── main.tsx      — health-check loading screen → App
-│   ├── scripts/
-│   │   └── prepare_sidecar_windows.ps1  — copy exe vào src-tauri/binaries/
-│   └── src-tauri/
-│       ├── src/lib.rs    — spawn & kill sidecar tự động
-│       ├── tauri.conf.json
-│       └── capabilities/default.json
-├── scripts/
-│   └── backup_db.sh
-├── README.md             — hướng dẫn tổng quan (file này)
-└── PACKAGING.md          — hướng dẫn đóng gói exe chi tiết
+│   │   ├── pages/        — Dashboard, POS (với chọn Lô), Products, Inventory, Import, StockTake, Reports
+│   │   ├── api.ts
+│   │   ├── types.ts
+│   │   └── main.tsx
+│   ├── src-tauri/
+│   │   ├── src/lib.rs    — spawn & kill sidecar tự động
+│   │   ├── tauri.conf.json
+│   │   └── binaries/     — chứa wm-backend.exe (sidecar)
+├── build-release.ps1     — Script build 1-click (v0.2.x)
+├── README.md             
+└── PACKAGING.md          
 ```
 
 ---

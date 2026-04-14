@@ -1,9 +1,10 @@
-from datetime import date
+from datetime import date, datetime
 from io import BytesIO
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, selectinload
+import openpyxl
 
 from app.db.session import get_db
 from app.models import ImportItem, ImportReceipt, Product
@@ -99,16 +100,16 @@ def get_receipt(receipt_id: int, db: Session = Depends(get_db)) -> ImportReceipt
         .first()
     )
     if not r:
-        raise HTTPException(status_code=404, detail="Receipt not found")
+        raise HTTPException(status_code=404, detail="Không tìm thấy phiếu nhập")
     return _build_receipt_out(r)
 
 @router.patch("/{receipt_id}/pay", response_model=ImportReceiptOut)
 def pay_debt(receipt_id: int, db: Session = Depends(get_db)) -> dict:
     r = db.query(ImportReceipt).filter(ImportReceipt.id == receipt_id).first()
     if not r:
-        raise HTTPException(status_code=404, detail="Receipt not found")
+        raise HTTPException(status_code=404, detail="Không tìm thấy phiếu nhập")
     if not r.is_debt:
-        raise HTTPException(status_code=400, detail="Receipt is not a debt")
+        raise HTTPException(status_code=400, detail="Phiếu nhập này không phải là phiếu ghi nợ")
     
     r.is_debt = False
     db.commit()
@@ -148,4 +149,91 @@ def _build_receipt_out(r: ImportReceipt) -> dict:
         "is_debt": r.is_debt,
         "total_amount": r.total_amount,
         "items": items,
+    }
+
+@router.post("/parse-excel")
+def parse_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    if not file.filename or not file.filename.endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="Chỉ chấp nhận file .xlsx")
+
+    try:
+        content = file.file.read()
+        wb = openpyxl.load_workbook(BytesIO(content), data_only=True)
+        ws = wb.active
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Không đọc được file Excel: {e}") from e
+
+    lines = []
+    errors = []
+
+    for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        if not row or row[0] is None:
+            continue
+        try:
+            sku = str(row[0]).strip()
+            if not sku:
+                continue
+
+            # Find product
+            product = db.query(Product).filter(Product.sku == sku).first()
+            if not product:
+                errors.append(f"Dòng {row_idx}: Không tìm thấy sản phẩm có mã SKU '{sku}'")
+                continue
+
+            # Parse quantity (col 5 is index 4)
+            qty_raw = row[4]
+            qty_val = 0
+            if qty_raw is not None and str(qty_raw).strip() != "":
+                qty_val = float(qty_raw)
+            else:
+                qty_val = 0
+
+            # Import price (col 4 is index 3)
+            imp_price_raw = row[3]
+            if imp_price_raw is not None and str(imp_price_raw).strip() != "":
+                imp_price = float(imp_price_raw)
+            else:
+                imp_price = product.default_import_price if product.default_import_price else 0
+
+            # Batch (col 8 is index 7)
+            batch = ""
+            if len(row) > 7 and row[7]:
+                batch = str(row[7]).strip()
+
+            # Expiry (col 9 is index 8)
+            expiry_str = ""
+            if len(row) > 8 and row[8]:
+                raw_exp = str(row[8]).strip()
+                # Parse dd/mm/yyyy -> yyyy-mm-dd
+                try:
+                    dt = datetime.strptime(raw_exp.split(" ")[0], "%d/%m/%Y")
+                    expiry_str = dt.strftime("%Y-%m-%d")
+                except ValueError:
+                    # Fallback if it's already YYYY-MM-DD or unexpected
+                    # Also handles Excel datetime objects if converted to string
+                    try:
+                        # Sometimes openpyxl data_only=True reads date as datetime object which gets converted to string like "2026-10-10 00:00:00"
+                        if "-" in raw_exp:
+                            dt = datetime.strptime(raw_exp.split(" ")[0], "%Y-%m-%d")
+                            expiry_str = dt.strftime("%Y-%m-%d")
+                        else:
+                            expiry_str = raw_exp
+                    except Exception:
+                        expiry_str = raw_exp
+
+            lines.append({
+                "product_id": product.id,
+                "product_summary": f"{product.name} · {product.sku}",
+                "quantity": str(qty_val),
+                "import_price": str(imp_price),
+                "batch_code": batch,
+                "expiry_date": expiry_str
+            })
+
+        except Exception as e:
+            errors.append(f"Dòng {row_idx}: {e}")
+
+    return {
+        "lines": lines,
+        "errors": errors
     }

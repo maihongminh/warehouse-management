@@ -31,7 +31,7 @@ def list_products(
 def create_product(body: ProductCreate, db: Session = Depends(get_db)) -> Product:
     exists = db.query(Product).filter(Product.sku == body.sku).first()
     if exists:
-        raise HTTPException(status_code=400, detail="SKU already exists")
+        raise HTTPException(status_code=400, detail="Mã SKU đã tồn tại")
     p = Product(
         name=body.name,
         sku=body.sku,
@@ -175,7 +175,7 @@ def import_products_excel(
 def get_product(product_id: int, db: Session = Depends(get_db)) -> Product:
     p = db.get(Product, product_id)
     if not p:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail="Không tìm thấy sản phẩm")
     return p
 
 
@@ -183,7 +183,7 @@ def get_product(product_id: int, db: Session = Depends(get_db)) -> Product:
 def list_product_batches(product_id: int, db: Session = Depends(get_db)) -> list[Batch]:
     p = db.get(Product, product_id)
     if not p:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail="Không tìm thấy sản phẩm")
     return (
         db.query(Batch)
         .filter(Batch.product_id == product_id, Batch.quantity_remaining > 0)
@@ -196,7 +196,7 @@ def list_product_batches(product_id: int, db: Session = Depends(get_db)) -> list
 def update_product(product_id: int, body: ProductUpdate, db: Session = Depends(get_db)) -> Product:
     p = db.get(Product, product_id)
     if not p:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail="Không tìm thấy sản phẩm")
     data = body.model_dump(exclude_unset=True)
     for k, v in data.items():
         setattr(p, k, v)
@@ -210,6 +210,6 @@ def delete_product(product_id: int, db: Session = Depends(get_db)) -> None:
     """Soft delete — đánh dấu is_active=False, không xóa dữ liệu thật."""
     p = db.get(Product, product_id)
     if not p:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail="Không tìm thấy sản phẩm")
     p.is_active = False
     db.commit()

@@ -169,7 +169,7 @@ export default function Products() {
         <div className="ml-auto flex gap-2">
           {/* Import Excel */}
           <label className={`flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800 ${importing ? 'opacity-60 cursor-not-allowed' : ''}`}>
-            {importing ? '⏳ Đang nhập...' : '📥 Nhập từ Excel'}
+            {importing ? 'Đang nhập...' : 'Nhập từ Excel'}
             <input
               ref={fileInputRef}
               type="file"
@@ -187,7 +187,7 @@ export default function Products() {
             onClick={onExportExcel}
             className="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50 disabled:opacity-60"
           >
-            {exporting ? '⏳ Đang xuất...' : '📤 Xuất Excel'}
+            {exporting ? 'Đang xuất...' : 'Xuất Excel'}
           </button>
         </div>
       </div>

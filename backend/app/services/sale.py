@@ -23,13 +23,13 @@ def complete_sale_fefo(db: Session, sale_id: int, *, sale_date: date | None = No
         .first()
     )
     if not sale:
-        raise ValueError("Sale not found")
+        raise ValueError("Không tìm thấy phiếu bán hàng")
     if sale.status != SaleStatus.draft:
-        raise ValueError("Sale is not draft")
+        raise ValueError("Phiếu bán hàng không ở trạng thái nháp")
 
     draft_items = list(sale.items)
     if not draft_items:
-        raise ValueError("No line items")
+        raise ValueError("Giỏ hàng đang trống")
 
     today = sale_date or date.today()
 
@@ -38,26 +38,40 @@ def complete_sale_fefo(db: Session, sale_id: int, *, sale_date: date | None = No
         qty_needed = line.quantity
         product = db.get(Product, line.product_id)
         if not product:
-            raise ValueError(f"Product {line.product_id} not found")
+            raise ValueError(f"Không tìm thấy sản phẩm {line.product_id}")
 
-        batches = (
-            db.query(Batch)
-            .filter(
-                Batch.product_id == line.product_id,
-                Batch.quantity_remaining > 0,
-                Batch.expiry_date >= today,
+        if line.batch_id:
+            batches = (
+                db.query(Batch)
+                .filter(Batch.id == line.batch_id, Batch.quantity_remaining > 0)
+                .with_for_update()
+                .all()
             )
-            .order_by(Batch.expiry_date.asc(), Batch.id.asc())
-            .with_for_update()
-            .all()
-        )
+        else:
+            batches = (
+                db.query(Batch)
+                .filter(
+                    Batch.product_id == line.product_id,
+                    Batch.quantity_remaining > 0,
+                    Batch.expiry_date >= today,
+                )
+                .order_by(Batch.expiry_date.asc(), Batch.id.asc())
+                .with_for_update()
+                .all()
+            )
 
         available = sum(b.quantity_remaining for b in batches)
         if available < qty_needed:
-            raise ValueError(
-                f"Insufficient stock for product {product.name} (sku {product.sku}): "
-                f"need {qty_needed}, have {available}"
-            )
+            if line.batch_id:
+                # Tìm tên lô để in lỗi cho rõ
+                binfo = db.get(Batch, line.batch_id)
+                bname = binfo.batch_code if binfo and binfo.batch_code else f"ID {line.batch_id}"
+                raise ValueError(f"Không đủ tồn kho ở lô {bname} cho sản phẩm {product.name}. Cần {qty_needed}, có sẵn {available}.")
+            else:
+                raise ValueError(
+                    f"Sản phẩm {product.name} (SKU: {product.sku}) không đủ tồn kho: "
+                    f"cần {qty_needed}, chỉ có {available}"
+                )
 
         for b in batches:
             if qty_needed <= 0:
@@ -76,7 +90,7 @@ def complete_sale_fefo(db: Session, sale_id: int, *, sale_date: date | None = No
             qty_needed -= take
 
         if qty_needed > 0:
-            raise ValueError(f"Allocation failed for product {line.product_id}")
+            raise ValueError(f"Lỗi phân bổ kho cho sản phẩm {line.product_id}")
 
     for item in draft_items:
         db.delete(item)
@@ -117,9 +131,9 @@ def complete_sale_fefo(db: Session, sale_id: int, *, sale_date: date | None = No
 def cancel_sale(db: Session, sale_id: int) -> Sale:
     sale = db.query(Sale).filter(Sale.id == sale_id).with_for_update().first()
     if not sale:
-        raise ValueError("Sale not found")
+        raise ValueError("Không tìm thấy phiếu bán hàng")
     if sale.status != SaleStatus.draft:
-        raise ValueError("Only draft sales can be cancelled")
+        raise ValueError("Chỉ có thể hủy phiếu nháp")
     sale.status = SaleStatus.cancelled
     db.commit()
     db.refresh(sale)

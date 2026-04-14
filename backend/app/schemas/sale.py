@@ -9,6 +9,7 @@ from app.models import SaleStatus
 
 class SaleDraftLine(BaseModel):
     product_id: int
+    batch_id: int | None = None
     quantity: int = Field(..., gt=0)
     sale_price: Decimal = Field(..., ge=0)
 

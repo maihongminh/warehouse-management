@@ -11,10 +11,10 @@ def return_stock_to_batch(
     ref_id: int | None = None,
 ) -> Batch:
     if quantity <= 0:
-        raise ValueError("quantity must be positive")
+        raise ValueError("Số lượng phải lớn hơn 0")
     batch = db.query(Batch).filter(Batch.id == batch_id).with_for_update().first()
     if not batch:
-        raise ValueError("Batch not found")
+        raise ValueError("Không tìm thấy lô hàng")
 
     batch.quantity_remaining += quantity
     db.add(

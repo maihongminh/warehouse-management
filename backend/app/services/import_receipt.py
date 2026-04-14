@@ -30,7 +30,7 @@ def create_import_receipt(
     for line in lines:
         product = db.get(Product, line["product_id"])
         if not product or not product.is_active:
-            raise ValueError(f"Product {line['product_id']} not found or inactive")
+            raise ValueError(f"Sản phẩm {line['product_id']} không tồn tại hoặc đã ngừng kinh doanh")
 
         batch_code = line.get("batch_code") or ""
         expiry_date = line["expiry_date"]

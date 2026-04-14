@@ -22,5 +22,5 @@ def period_summary(
     date_to: date = Query(..., description="Đến ngày (inclusive)"),
 ):
     if date_from > date_to:
-        raise HTTPException(status_code=400, detail="date_from must be <= date_to")
+        raise HTTPException(status_code=400, detail="Từ ngày không được lớn hơn Đến ngày")
     return reports_svc.period_summary(db, date_from, date_to)

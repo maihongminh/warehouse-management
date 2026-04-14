@@ -6,7 +6,7 @@ from app.models import Batch, InventoryChangeType, InventoryLog, StockAdjustment
 def apply_stock_take(db: Session, batch_id: int, actual_quantity: int) -> StockAdjustment:
     batch = db.query(Batch).filter(Batch.id == batch_id).with_for_update().first()
     if not batch:
-        raise ValueError("Batch not found")
+        raise ValueError("Không tìm thấy lô hàng")
 
     system_qty = batch.quantity_remaining
     diff = actual_quantity - system_qty
