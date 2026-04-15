@@ -59,7 +59,7 @@ def export_products_excel(db: Session = Depends(get_db)):
     ws = wb.active
     ws.title = "DanhSachSanPham"
 
-    headers = ["Mã hàng", "Tên hàng", "Giá bán", "Giá vốn", "Tồn kho", "ĐVT", "Quy đổi"]
+    headers = ["Mã hàng", "Tên hàng", "Giá bán", "Giá vốn", "Tồn kho", "ĐVT", "Quy đổi", "Lô 1", "Hạn sử dụng 1"]
     header_fill = PatternFill(start_color="1E8449", end_color="1E8449", fill_type="solid")
     header_font = Font(bold=True, color="FFFFFF")
 
@@ -70,12 +70,16 @@ def export_products_excel(db: Session = Depends(get_db)):
         cell.alignment = Alignment(horizontal="center")
 
     for row_idx, p in enumerate(products, 2):
-        from sqlalchemy.orm import selectinload
         batches = db.query(Batch).filter(
             Batch.product_id == p.id,
             Batch.quantity_remaining > 0
-        ).all()
+        ).order_by(Batch.expiry_date.asc()).all()
         total_qty = sum(b.quantity_remaining for b in batches)
+
+        # Lô gần hết hạn nhất (FEFO) để xuất vào cột Lô 1 / HSD 1
+        first_batch = batches[0] if batches else None
+        batch_code = first_batch.batch_code or "" if first_batch else ""
+        expiry_date = first_batch.expiry_date if first_batch else None
 
         ws.cell(row=row_idx, column=1, value=p.sku)
         ws.cell(row=row_idx, column=2, value=p.name)
@@ -84,6 +88,14 @@ def export_products_excel(db: Session = Depends(get_db)):
         ws.cell(row=row_idx, column=5, value=total_qty)
         ws.cell(row=row_idx, column=6, value=p.unit)
         ws.cell(row=row_idx, column=7, value=p.conversion_rate)
+        ws.cell(row=row_idx, column=8, value=batch_code)
+        # Ghi ngày dạng date object để Excel tự nhận biết định dạng ngày
+        if expiry_date:
+            from datetime import date
+            cell_exp = ws.cell(row=row_idx, column=9, value=expiry_date)
+            cell_exp.number_format = "DD/MM/YYYY"
+        else:
+            ws.cell(row=row_idx, column=9, value="")
 
     for col in ws.columns:
         max_len = max((len(str(cell.value or "")) for cell in col), default=10)
@@ -98,6 +110,7 @@ def export_products_excel(db: Session = Depends(get_db)):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=DanhSachSanPham.xlsx"},
     )
+
 
 
 @router.post("/import-excel")

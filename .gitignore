@@ -18,3 +18,4 @@ frontend/dist/
 frontend/src-tauri/target/
 
 .DS_Store
+new_idea/

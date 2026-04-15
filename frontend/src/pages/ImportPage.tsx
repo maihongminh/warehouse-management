@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import type { FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { apiGet, apiPatch, apiPost /*, apiUpload */ } from '../api'
+import { apiGet, apiPatch, apiPost, apiUpload } from '../api'
 import type { ImportReceiptListItem, ImportReceiptOut, Product } from '../types'
 
 type Line = {
@@ -56,10 +56,9 @@ export default function ImportPage() {
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
-  // const fileInputRef = useRef<HTMLInputElement>(null)
-  // const [parsingExcel, setParsingExcel] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [parsingExcel, setParsingExcel] = useState(false)
 
-  /*
   const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -97,7 +96,6 @@ export default function ImportPage() {
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
-  */
 
   // History
   const [history, setHistory] = useState<ImportReceiptListItem[]>([])
@@ -266,7 +264,6 @@ export default function ImportPage() {
           </ol>
         </div>
 
-        {/* 
         <div className="flex items-center gap-4 mb-4">
           <input
             type="file"
@@ -285,7 +282,6 @@ export default function ImportPage() {
           </button>
           <span className="text-xs text-zinc-500">Hỗ trợ tự động điền Tồn kho, Mã lô, HSD theo mã SKU.</span>
         </div>
-        */}
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

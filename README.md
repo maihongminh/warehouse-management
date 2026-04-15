@@ -36,18 +36,19 @@ Mở `http://127.0.0.1:5173`. hoặc `http://localhost:5173/`
 | Màn hình | Route | Mô tả |
 |----------|-------|-------|
 | Dashboard | `/` | Lối tắt nghiệp vụ nhanh, thống kê hôm nay, tồn thấp & lô sắp hết hạn |
-| POS | `/pos` | Giao diện bán hàng nhanh, quản lý giỏ, lưu phiếu nháp, hóa đơn chi tiết. **Cho phép chọn Lô xuất kho thủ công (ghi đè FEFO)**. |
+| POS | `/pos` | Giao diện bán hàng nhanh, quản lý giỏ, lưu phiếu nháp. **Hỗ trợ chọn đơn vị Bán lẻ (Viên) hoặc Bán nguyên (Hộp)**, tự động quy đổi giá và tồn kho. |
 | Hóa đơn | `/invoices` | Bảng quản lý hóa đơn riêng biệt với bộ lọc đa tiêu chí |
-| Sản phẩm | `/products` | Thêm trường **Quy đổi**, xóa sản phẩm (ẩn), thao tác Import/Export **EXCEL** hàng loạt |
+| Sản phẩm | `/products` | Thêm trường **Quy đổi**, xóa sản phẩm (ẩn), thao tác Import/Export **EXCEL** (đã bổ sung thông tin Lô/HSD sớm nhất) |
 | Kho | `/inventory` | Bảng chi tiết: màu cảnh báo HSD (FEFO), giá vốn trung bình, số lượng tổng |
-| Nhập kho | `/import` | Tạo phiếu, **Ghi nợ** / **Trả nợ**, lịch sử phiếu với bộ lọc. Hỗ trợ **Nhập từ Excel** (tạm ẩn). |
+| Nhập kho | `/import` | Tạo phiếu, **Ghi nợ** / **Trả nợ**, lịch sử phiếu. Hỗ trợ **Nhập từ Excel** thông minh (tự làm tròn số lượng, khớp mã lô). |
 | Kiểm kho | `/stock-take` | Nhập SL thực tế theo lô, tự điều chỉnh chênh lệch |
 | Báo cáo | `/reports` | Doanh thu, lợi nhuận thực tế theo Lô, số HĐ theo kỳ, cảnh báo tồn/HSD |
 
 ---
 
-## Ghi chú hệ thống v0.2.1
-- **Việt hóa**: Toàn bộ thông báo lỗi và validation từ Backend đã được chuyển sang Tiếng Việt.
+## Ghi chú hệ thống v0.2.2
+- **Đơn vị Quy đổi (Hộp/Viên)**: POS cho phép chọn đơn vị bán, tự động nhân/chia dựa trên Tỷ lệ quy đổi.
+- **Excel Thông minh**: Nhập kho Excel hỗ trợ xử lý số lượng lẻ (làm tròn), đọc định dạng Date của Excel. Xuất sản phẩm kèm theo mã Lô/HSD của lô gần hết hạn nhất.
 - **Dọn dẹp UI**: Loại bỏ emoji icon gồ ghề ở các nút Excel, bo góc mượt mà hơn.
 
 ---
@@ -63,7 +64,7 @@ Tóm tắt 3 bước (chạy trên Windows):
 powershell -ExecutionPolicy Bypass -File build-release.ps1
 ```
 
-**Output**: `frontend\src-tauri\target\release\bundle\nsis\Warehouse POS_0.2.1_x64-setup.exe`
+**Output**: `frontend\src-tauri\target\release\bundle\nsis\Warehouse POS_0.2.2_x64-setup.exe`
 
 **Data người dùng** lưu tại: `%APPDATA%\vn.local.warehouse.pos\app.db`
 

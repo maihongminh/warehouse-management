@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { apiGet, apiPost } from '../api'
 import type { Batch, Product, SaleWithItems } from '../types'
 
+// 'base' = đơn vị nhỏ nhất (viên, miếng, ...)
+// 'main' = đơn vị chính (hộp, lốc, ...) khi conversion_rate > 1
+type SellUnit = 'base' | 'main'
+
 type CartLine = {
   key: string
   product: Product
@@ -9,6 +13,7 @@ type CartLine = {
   selected_batch_id: number | null
   quantity: number
   sale_price: string
+  sell_unit: SellUnit
 }
 
 type SaleStatus = 'draft' | 'completed' | 'cancelled'
@@ -26,6 +31,23 @@ const STATUS_CLASS: Record<SaleStatus, string> = {
 
 function fmt(n: string | number) {
   return Number(n).toLocaleString('vi-VN')
+}
+
+/** Tính số lượng thực tế (viên) gửi lên API */
+function actualQty(line: CartLine): number {
+  return line.sell_unit === 'main'
+    ? line.quantity * (line.product.conversion_rate || 1)
+    : line.quantity
+}
+
+/** Tính đơn giá thực tế theo đơn vị đang chọn */
+function priceForUnit(product: Product, unit: SellUnit): string {
+  if (unit === 'main' || (product.conversion_rate ?? 1) <= 1) {
+    return product.default_sale_price
+  }
+  // Bán lẻ (viên): giá = default_sale_price / conversion_rate
+  const perBase = Number(product.default_sale_price) / (product.conversion_rate || 1)
+  return String(Math.round(perBase))
 }
 
 export default function POS() {
@@ -71,7 +93,8 @@ export default function POS() {
   const addToCart = (p: Product) => {
     setErr(null)
     setCart((c) => {
-      const ex = c.find((x) => x.product.id === p.id && x.selected_batch_id === null)
+      // Tìm dòng có cùng sản phẩm, cùng đơn vị, chưa chọn lô cụ thể
+      const ex = c.find((x) => x.product.id === p.id && x.selected_batch_id === null && x.sell_unit === 'main')
       if (ex) return c.map((x) => x.key === ex.key ? { ...x, quantity: x.quantity + 1 } : x)
       
       const newLineKey = crypto.randomUUID()
@@ -84,6 +107,9 @@ export default function POS() {
           })
           .catch(() => {})
       }
+
+      // Mặc định bán theo đơn vị chính (hộp) nếu có conversion_rate > 1
+      const defaultUnit: SellUnit = (p.conversion_rate ?? 1) > 1 ? 'main' : 'base'
       
       return [...c, { 
         key: newLineKey,
@@ -91,7 +117,8 @@ export default function POS() {
         batches: bData,
         selected_batch_id: null,
         quantity: 1, 
-        sale_price: p.default_sale_price 
+        sale_price: priceForUnit(p, defaultUnit),
+        sell_unit: defaultUnit,
       }]
     })
   }
@@ -106,10 +133,20 @@ export default function POS() {
     setResultSale(null)
   }
 
+  // Tổng cộng = sale_price × quantity (theo đơn vị đang hiển thị trong giỏ)
   const total = useMemo(
     () => cart.reduce((s, l) => s + Number(l.sale_price) * l.quantity, 0),
     [cart],
   )
+
+  /** Tạo lines gửi API — quantity luôn là số viên thực tế */
+  const buildApiLines = () =>
+    cart.map((l) => ({
+      product_id: l.product.id,
+      batch_id: l.selected_batch_id,
+      quantity: actualQty(l),   // ← số viên thực
+      sale_price: l.sale_price, // ← giá theo đơn vị đang chọn
+    }))
 
   // ── Tạo phiếu nháp ────────────────────────────────────────────────
   const saveDraft = async () => {
@@ -121,12 +158,7 @@ export default function POS() {
       const sale = await apiPost<SaleWithItems>('/sales', {
         date: today,
         created_by: 'pos',
-        lines: cart.map((l) => ({ 
-          product_id: l.product.id, 
-          batch_id: l.selected_batch_id,
-          quantity: l.quantity, 
-          sale_price: l.sale_price 
-        })),
+        lines: buildApiLines(),
       })
       setDraftSale(sale)
       setResultSale(null)
@@ -150,12 +182,7 @@ export default function POS() {
         const sale = await apiPost<SaleWithItems>('/sales', {
           date: today,
           created_by: 'pos',
-          lines: cart.map((l) => ({ 
-            product_id: l.product.id, 
-            batch_id: l.selected_batch_id,
-            quantity: l.quantity, 
-            sale_price: l.sale_price 
-          })),
+          lines: buildApiLines(),
         })
         saleId = sale.id
       }
@@ -388,7 +415,54 @@ export default function POS() {
                       ✕
                     </button>
                   </div>
-                  {/* Row 1.5: Batch select (override FEFO) */}
+
+                  {/* Row 1.5: Chọn đơn vị bán (chỉ hiện khi conversion_rate > 1) */}
+                  {l.product.conversion_rate > 1 && (
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="text-xs text-zinc-500 shrink-0">Bán theo:</span>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCart(c => c.map(x => x.key === l.key
+                              ? { ...x, sell_unit: 'main', sale_price: priceForUnit(x.product, 'main') }
+                              : x
+                            ))
+                          }}
+                          className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                            l.sell_unit === 'main'
+                              ? 'bg-emerald-600 text-white'
+                              : 'border border-zinc-300 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300'
+                          }`}
+                        >
+                          {l.product.unit} (nguyên)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCart(c => c.map(x => x.key === l.key
+                              ? { ...x, sell_unit: 'base', sale_price: priceForUnit(x.product, 'base') }
+                              : x
+                            ))
+                          }}
+                          className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                            l.sell_unit === 'base'
+                              ? 'bg-emerald-600 text-white'
+                              : 'border border-zinc-300 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300'
+                          }`}
+                        >
+                          Lẻ (1/{l.product.conversion_rate})
+                        </button>
+                      </div>
+                      {l.sell_unit === 'main' && (
+                        <span className="text-xs text-zinc-400 ml-auto">
+                          = {l.quantity * l.product.conversion_rate} đvt nhỏ/kho
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Row 2: Batch select (override FEFO) */}
                   <div className="mb-3">
                     <select
                       className="w-full rounded border border-zinc-300 bg-zinc-50 px-2 py-1 text-xs text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
@@ -406,10 +480,13 @@ export default function POS() {
                       ))}
                     </select>
                   </div>
-                  {/* Row 2: SL | Đơn giá | Thành tiền */}
+
+                  {/* Row 3: SL | Đơn giá | Thành tiền */}
                   <div className="grid grid-cols-3 gap-2 items-end">
                     <div>
-                      <p className="mb-0.5 text-xs text-zinc-500">Số lượng</p>
+                      <p className="mb-0.5 text-xs text-zinc-500">
+                        Số lượng {l.product.conversion_rate > 1 ? `(${l.sell_unit === 'main' ? l.product.unit : 'lẻ'})` : ''}
+                      </p>
                       <input
                         type="number"
                         min={1}

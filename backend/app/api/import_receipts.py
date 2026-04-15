@@ -180,13 +180,15 @@ def parse_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
                 errors.append(f"Dòng {row_idx}: Không tìm thấy sản phẩm có mã SKU '{sku}'")
                 continue
 
-            # Parse quantity (col 5 is index 4)
+            # Parse quantity (col 5 is index 4) — làm tròn số thập phân thành số nguyên
             qty_raw = row[4]
             qty_val = 0
             if qty_raw is not None and str(qty_raw).strip() != "":
-                qty_val = float(qty_raw)
-            else:
-                qty_val = 0
+                qty_val = round(float(qty_raw))
+
+            # Bỏ qua dòng tồn kho = 0 (không cần nhập kho)
+            if qty_val <= 0:
+                continue
 
             # Import price (col 4 is index 3)
             imp_price_raw = row[3]
@@ -203,28 +205,27 @@ def parse_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
             # Expiry (col 9 is index 8)
             expiry_str = ""
             if len(row) > 8 and row[8]:
-                raw_exp = str(row[8]).strip()
-                # Parse dd/mm/yyyy -> yyyy-mm-dd
+                raw_exp = row[8]
                 try:
-                    dt = datetime.strptime(raw_exp.split(" ")[0], "%d/%m/%Y")
-                    expiry_str = dt.strftime("%Y-%m-%d")
-                except ValueError:
-                    # Fallback if it's already YYYY-MM-DD or unexpected
-                    # Also handles Excel datetime objects if converted to string
-                    try:
-                        # Sometimes openpyxl data_only=True reads date as datetime object which gets converted to string like "2026-10-10 00:00:00"
-                        if "-" in raw_exp:
-                            dt = datetime.strptime(raw_exp.split(" ")[0], "%Y-%m-%d")
-                            expiry_str = dt.strftime("%Y-%m-%d")
-                        else:
-                            expiry_str = raw_exp
-                    except Exception:
-                        expiry_str = raw_exp
+                    # openpyxl reads date cells as datetime objects directly
+                    import datetime as dt_module
+                    if isinstance(raw_exp, (dt_module.datetime, dt_module.date)):
+                        expiry_str = raw_exp.strftime("%Y-%m-%d")
+                    else:
+                        raw_str = str(raw_exp).strip()
+                        # Try dd/mm/yyyy
+                        try:
+                            expiry_str = datetime.strptime(raw_str.split(" ")[0], "%d/%m/%Y").strftime("%Y-%m-%d")
+                        except ValueError:
+                            # Try yyyy-mm-dd
+                            expiry_str = datetime.strptime(raw_str.split(" ")[0], "%Y-%m-%d").strftime("%Y-%m-%d")
+                except Exception:
+                    expiry_str = str(raw_exp)
 
             lines.append({
                 "product_id": product.id,
                 "product_summary": f"{product.name} · {product.sku}",
-                "quantity": str(qty_val),
+                "quantity": str(qty_val),  # gửi dạng int string
                 "import_price": str(imp_price),
                 "batch_code": batch,
                 "expiry_date": expiry_str

@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class ImportLineIn(BaseModel):
     product_id: int
-    quantity: int = Field(..., gt=0)
+    quantity: Decimal = Field(..., ge=0)
     import_price: Decimal = Field(..., ge=0)
     batch_code: str = ""
     expiry_date: date
