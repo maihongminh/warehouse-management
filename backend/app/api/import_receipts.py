@@ -14,6 +14,7 @@ from app.schemas.import_receipt import (
     ImportReceiptOut,
     ImportItemOut,
 )
+from app.schemas.pagination import PaginatedResponse
 from app.services import import_receipt as import_svc
 
 router = APIRouter()
@@ -43,7 +44,7 @@ def create_receipt(body: ImportReceiptCreate, db: Session = Depends(get_db)) -> 
     return _build_receipt_out(r)
 
 
-@router.get("", response_model=list[ImportReceiptListItem])
+@router.get("", response_model=PaginatedResponse[ImportReceiptListItem])
 def list_receipts(
     db: Session = Depends(get_db),
     is_debt: bool | None = Query(None),
@@ -51,9 +52,9 @@ def list_receipts(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     supplier: str | None = Query(None),
-    limit: int = Query(50, le=200),
-    offset: int = Query(0, ge=0),
-) -> list[dict]:
+    page: int = Query(1, ge=1),
+    size: int = Query(50, ge=1, le=100),
+) -> dict:
     q = db.query(ImportReceipt)
 
     if is_debt is not None:
@@ -69,11 +70,14 @@ def list_receipts(
             Product.name.ilike(f"%{product_name}%")
         ).distinct()
 
+    total = q.count()
+    total_pages = (total + size - 1) // size
+
     receipts = (
         q.options(selectinload(ImportReceipt.items))
         .order_by(ImportReceipt.id.desc())
-        .offset(offset)
-        .limit(limit)
+        .offset((page - 1) * size)
+        .limit(size)
         .all()
     )
 
@@ -85,10 +89,17 @@ def list_receipts(
             "created_by": r.created_by,
             "supplier": r.supplier,
             "is_debt": r.is_debt,
-            "total_amount": r.total_amount,
+            "total_amount": str(r.total_amount),
             "item_count": len(r.items),
         })
-    return result
+    
+    return {
+        "items": result,
+        "total": total,
+        "page": page,
+        "size": size,
+        "total_pages": total_pages
+    }
 
 
 @router.get("/{receipt_id}", response_model=ImportReceiptOut)

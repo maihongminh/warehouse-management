@@ -36,20 +36,21 @@ Mở `http://127.0.0.1:5173`. hoặc `http://localhost:5173/`
 | Màn hình | Route | Mô tả |
 |----------|-------|-------|
 | Dashboard | `/` | Lối tắt nghiệp vụ nhanh, thống kê hôm nay, tồn thấp & lô sắp hết hạn |
-| POS | `/pos` | Giao diện bán hàng nhanh, quản lý giỏ, lưu phiếu nháp. **Hỗ trợ chọn đơn vị Bán lẻ (Viên) hoặc Bán nguyên (Hộp)**, tự động quy đổi giá và tồn kho. |
-| Hóa đơn | `/invoices` | Bảng quản lý hóa đơn riêng biệt với bộ lọc đa tiêu chí |
-| Sản phẩm | `/products` | Thêm trường **Quy đổi**, xóa sản phẩm (ẩn), thao tác Import/Export **EXCEL** (đã bổ sung thông tin Lô/HSD sớm nhất) |
-| Kho | `/inventory` | Bảng chi tiết: màu cảnh báo HSD (FEFO), giá vốn trung bình, số lượng tổng |
-| Nhập kho | `/import` | Tạo phiếu, **Ghi nợ** / **Trả nợ**, lịch sử phiếu. Hỗ trợ **Nhập từ Excel** thông minh (tự làm tròn số lượng, khớp mã lô). |
-| Kiểm kho | `/stock-take` | Nhập SL thực tế theo lô, tự điều chỉnh chênh lệch |
-| Báo cáo | `/reports` | Doanh thu, lợi nhuận thực tế theo Lô, số HĐ theo kỳ, cảnh báo tồn/HSD |
+| POS | `/pos` | Giao diện bán hàng nhanh, quản lý giỏ, lưu phiếu nháp. **Hỗ trợ đơn vị tính (Viên/Hộp)** trong tìm kiếm, tự động quy đổi giá và tồn kho. Giỏ hàng hiển thị rộng hơn. |
+| Hóa đơn | `/invoices` | Quản lý hóa đơn với bộ lọc đa tiêu chí. **Hỗ trợ phân trang** và popup chi tiết chống tràn dữ liệu. |
+| Sản phẩm | `/products` | Thao tác Import/Export **EXCEL**, quản lý quy đổi. **Hệ thống phân trang mới** (10-100 dòng/trang). |
+| Kho | `/inventory` | Bảng tồn kho chi tiết, FEFO, giá vốn. **Hệ thống phân trang mới**. |
+| Nhập kho | `/import` | Tạo phiếu, ghi nợ, nhập từ Excel. **Popup chi tiết hỗ trợ cuộn dọc** cho danh sách dài. |
+| Kiểm kho | `/stock-take` | Điều chỉnh chênh lệch theo lô. **Hỗ trợ phân trang**. |
+| Báo cáo | `/reports` | Doanh thu, lợi nhuận, lô hết hạn. **Phân trang danh sách lô sắp hết hạn**. |
 
 ---
 
 ## Ghi chú hệ thống v0.2.2
-- **Đơn vị Quy đổi (Hộp/Viên)**: POS cho phép chọn đơn vị bán, tự động nhân/chia dựa trên Tỷ lệ quy đổi.
+- **Phân trang Hệ thống (Server-side Pagination)**: Tất cả các bảng danh sách lớn (Sản phẩm, Kho, Nhập kho, Hóa đơn...) hiện đã được phân trang từ phía server để đảm bảo hiệu năng. Cho phép chọn hiển thị **10, 20, 50 hoặc 100 dòng**.
+- **Cải tiến POS**: Hiển thị đơn vị tính (Viên/Hộp/...) ngay trong danh sách tìm kiếm sản phẩm. Tăng chiều cao vùng hiển thị giỏ hàng lên 500px.
+- **Fix UI Detail Modal**: Các cửa sổ xem chi tiết (Hóa đơn, Phiếu nhập) hiện đã hỗ trợ cuộn dọc và giới hạn chiều cao, không còn bị tràn khỏi màn hình khi có quá nhiều sản phẩm.
 - **Excel Thông minh**: Nhập kho Excel hỗ trợ xử lý số lượng lẻ (làm tròn), đọc định dạng Date của Excel. Xuất sản phẩm kèm theo mã Lô/HSD của lô gần hết hạn nhất.
-- **Dọn dẹp UI**: Loại bỏ emoji icon gồ ghề ở các nút Excel, bo góc mượt mà hơn.
 
 ---
 

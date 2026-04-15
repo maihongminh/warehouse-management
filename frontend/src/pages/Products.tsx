@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { apiDelete, apiGet, apiGetBlob, apiPost, apiUpload } from '../api'
-import type { Product } from '../types'
+import type { PaginatedResponse, Product } from '../types'
+import Pagination from '../components/Pagination'
 
 type ImportResult = {
   created: number
@@ -12,7 +13,9 @@ type ImportResult = {
 }
 
 export default function Products() {
-  const [list, setList] = useState<Product[]>([])
+  const [paged, setPaged] = useState<PaginatedResponse<Product> | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(50)
   const [q, setQ] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const [okMsg, setOkMsg] = useState<string | null>(null)
@@ -34,21 +37,22 @@ export default function Products() {
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
-  const load = () => {
-    const qs = q ? `?q=${encodeURIComponent(q)}` : ''
-    apiGet<Product[]>(`/products${qs}`)
-      .then(setList)
+  const load = (targetPage: number = page, size: number = pageSize) => {
+    const qs = `page=${targetPage}&size=${size}${q ? `&q=${encodeURIComponent(q)}` : ''}`
+    apiGet<PaginatedResponse<Product>>(`/products?${qs}`)
+      .then(setPaged)
       .catch((e: Error) => setErr(e.message))
   }
 
   useEffect(() => {
-    load()
+    load(page, pageSize)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [page, pageSize])
 
   const onSearch = (e: FormEvent) => {
     e.preventDefault()
-    load()
+    setPage(1)
+    load(1)
   }
 
   const onCreate = (e: FormEvent) => {
@@ -289,7 +293,9 @@ export default function Products() {
       {err ? <p className="text-red-600">{err}</p> : null}
 
       <div>
-        <h2 className="mb-2 text-lg font-medium text-zinc-800 dark:text-zinc-100">Danh sách ({list.length})</h2>
+        <h2 className="mb-2 text-lg font-medium text-zinc-800 dark:text-zinc-100">
+          Danh sách ({paged?.total ?? 0})
+        </h2>
         <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-zinc-100 text-xs uppercase text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
@@ -305,7 +311,7 @@ export default function Products() {
               </tr>
             </thead>
             <tbody>
-              {list.map((p) => (
+              {paged?.items.map((p) => (
                 <tr key={p.id} className="border-t border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
                   <td className="px-3 py-2 font-mono text-xs text-zinc-500">{p.sku}</td>
                   <td className="px-3 py-2 font-medium">{p.name}</td>
@@ -335,13 +341,22 @@ export default function Products() {
                   </td>
                 </tr>
               ))}
-              {list.length === 0 && (
+              {paged?.items.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-3 py-8 text-center text-zinc-400">Không có sản phẩm.</td>
                 </tr>
               )}
             </tbody>
           </table>
+          {paged && (
+            <Pagination 
+              page={page} 
+              totalPages={paged.total_pages} 
+              pageSize={pageSize}
+              onPageChange={setPage} 
+              onPageSizeChange={(s) => { setPageSize(s); setPage(1) }}
+            />
+          )}
         </div>
       </div>
 

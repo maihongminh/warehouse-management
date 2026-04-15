@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { apiGet } from '../api'
-import type { ProductInventory } from '../types'
+import type { PaginatedResponse, ProductInventory } from '../types'
+import Pagination from '../components/Pagination'
 
 type SortKey = 'name' | 'sku' | 'total_quantity' | 'default_sale_price' | 'expiry'
 
@@ -18,23 +19,25 @@ function fmt(n: string | number) {
 }
 
 export default function InventoryPage() {
-  const [rows, setRows] = useState<ProductInventory[]>([])
+  const [paged, setPaged] = useState<PaginatedResponse<ProductInventory> | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(50)
   const [q, setQ] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [sortAsc, setSortAsc] = useState(true)
 
-  const load = () => {
-    const qs = q ? `?q=${encodeURIComponent(q)}` : ''
-    apiGet<ProductInventory[]>(`/inventory/products${qs}`)
-      .then(setRows)
+  const load = (targetPage: number = page, size: number = pageSize) => {
+    const qs = `page=${targetPage}&size=${size}${q ? `&q=${encodeURIComponent(q)}` : ''}`
+    apiGet<PaginatedResponse<ProductInventory>>(`/inventory/products?${qs}`)
+      .then(setPaged)
       .catch((e: Error) => setErr(e.message))
   }
 
   useEffect(() => {
-    load()
+    load(page, pageSize)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [page, pageSize])
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortAsc((a) => !a)
@@ -44,7 +47,7 @@ export default function InventoryPage() {
     }
   }
 
-  const sorted = [...rows].sort((a, b) => {
+  const sorted = [...(paged?.items ?? [])].sort((a, b) => {
     let va: number | string = 0
     let vb: number | string = 0
     if (sortKey === 'name') { va = a.name; vb = b.name }
@@ -75,11 +78,11 @@ export default function InventoryPage() {
             placeholder="Lọc tên / SKU…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && load()}
+            onKeyDown={(e) => e.key === 'Enter' && (setPage(1), load(1))}
           />
           <button
             type="button"
-            onClick={load}
+            onClick={() => { setPage(1); load(1) }}
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white hover:bg-emerald-700"
           >
             Tìm
@@ -217,6 +220,15 @@ export default function InventoryPage() {
             )}
           </tbody>
         </table>
+        {paged && (
+          <Pagination 
+            page={page} 
+            totalPages={paged.total_pages} 
+            pageSize={pageSize}
+            onPageChange={setPage} 
+            onPageSizeChange={(s) => { setPageSize(s); setPage(1) }}
+          />
+        )}
       </div>
 
       <div className="flex gap-4 text-xs text-zinc-500">

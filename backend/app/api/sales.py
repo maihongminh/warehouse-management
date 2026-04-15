@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.db.session import get_db
 from app.models import Sale, SaleItem, SaleStatus
 from app.schemas.sale import SaleCompleteOut, SaleCreate, SaleOut, SaleWithItemsOut
+from app.schemas.pagination import PaginatedResponse
 from app.services import sale as sale_svc
 
 router = APIRouter()
@@ -36,22 +37,34 @@ def create_sale(body: SaleCreate, db: Session = Depends(get_db)) -> Sale:
     )
 
 
-@router.get("", response_model=list[SaleOut])
+@router.get("", response_model=PaginatedResponse[SaleOut])
 def list_sales(
     db: Session = Depends(get_db),
     status: SaleStatus | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
-    limit: int = Query(100, le=500),
-) -> list[Sale]:
-    q = db.query(Sale).order_by(Sale.id.desc())
+    page: int = Query(1, ge=1),
+    size: int = Query(50, ge=1, le=100),
+) -> dict:
+    q = db.query(Sale)
     if status is not None:
         q = q.filter(Sale.status == status)
     if date_from is not None:
         q = q.filter(Sale.date >= date_from)
     if date_to is not None:
         q = q.filter(Sale.date <= date_to)
-    return q.limit(limit).all()
+    
+    total = q.count()
+    total_pages = (total + size - 1) // size
+    items = q.order_by(Sale.id.desc()).offset((page - 1) * size).limit(size).all()
+    
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "size": size,
+        "total_pages": total_pages
+    }
 
 
 @router.get("/{sale_id}", response_model=SaleWithItemsOut)

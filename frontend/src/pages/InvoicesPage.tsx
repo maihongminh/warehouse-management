@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { apiGet } from '../api'
-import type { SaleWithItems } from '../types'
+import type { PaginatedResponse, SaleWithItems } from '../types'
+import Pagination from '../components/Pagination'
 
 type SaleRow = Pick<SaleWithItems, 'id' | 'date' | 'total_amount' | 'status' | 'created_by'>
 
@@ -33,33 +34,37 @@ export default function InvoicesPage() {
   const [from, setFrom] = useState(init.from)
   const [to, setTo] = useState(init.to)
   const [statusFilter, setStatusFilter] = useState<'completed' | 'draft' | 'cancelled' | ''>('completed')
-  const [sales, setSales] = useState<SaleRow[]>([])
+  const [paged, setPaged] = useState<PaginatedResponse<SaleRow> | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(50)
   const [detail, setDetail] = useState<SaleWithItems | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const load = useCallback(() => {
+  const load = useCallback((targetPage: number = page, targetSize: number = pageSize) => {
     setErr(null)
     setLoading(true)
     const params = new URLSearchParams()
     params.set('date_from', from)
     params.set('date_to', to)
-    params.set('limit', '500')
+    params.set('page', String(targetPage))
+    params.set('size', String(targetSize))
     if (statusFilter) params.set('status', statusFilter)
-    apiGet<SaleRow[]>(`/sales?${params.toString()}`)
-      .then(setSales)
+    apiGet<PaginatedResponse<SaleRow>>(`/sales?${params.toString()}`)
+      .then(setPaged)
       .catch((e: Error) => setErr(e.message))
       .finally(() => setLoading(false))
-  }, [from, to, statusFilter])
+  }, [from, to, statusFilter, page, pageSize])
 
   useEffect(() => {
-    load()
-  }, [load])
+    load(page, pageSize)
+  }, [load, page, pageSize])
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault()
-    load()
+    setPage(1)
+    load(1)
   }
 
   const openDetail = (id: number) => {
@@ -71,9 +76,9 @@ export default function InvoicesPage() {
       .finally(() => setDetailLoading(false))
   }
 
-  const totalRevenue = sales
+  const totalRevenue = paged?.items
     .filter((s) => s.status === 'completed')
-    .reduce((sum, s) => sum + Number(s.total_amount), 0)
+    .reduce((sum, s) => sum + Number(s.total_amount), 0) ?? 0
 
   return (
     <div className="space-y-6">
@@ -126,17 +131,17 @@ export default function InvoicesPage() {
       {/* Summary */}
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
-          <p className="text-sm text-zinc-500">Số hóa đơn</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums">{sales.length}</p>
+          <p className="text-sm text-zinc-500">Số hóa đơn (trạng thái lọc)</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">{paged?.total ?? 0}</p>
         </div>
         <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
-          <p className="text-sm text-zinc-500">HĐ hoàn thành</p>
+          <p className="text-sm text-zinc-500">HĐ hoàn thành (trang này)</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
-            {sales.filter((s) => s.status === 'completed').length}
+            {paged?.items.filter((s) => s.status === 'completed').length ?? 0}
           </p>
         </div>
         <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
-          <p className="text-sm text-zinc-500">Tổng doanh thu</p>
+          <p className="text-sm text-zinc-500">Doanh thu (trang này)</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
             {fmt(totalRevenue)} ₫
           </p>
@@ -161,14 +166,14 @@ export default function InvoicesPage() {
               <tr>
                 <td colSpan={6} className="px-3 py-8 text-center text-zinc-400">Đang tải...</td>
               </tr>
-            ) : sales.length === 0 ? (
+            ) : !paged || paged.items.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-3 py-8 text-center text-zinc-400">
                   Không có hóa đơn trong khoảng thời gian này.
                 </td>
               </tr>
             ) : (
-              sales.map((s) => (
+              paged.items.map((s) => (
                 <tr key={s.id} className="border-t border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
                   <td className="px-3 py-2.5 font-mono text-xs text-zinc-500">#{s.id}</td>
                   <td className="px-3 py-2.5">{s.date}</td>
@@ -195,6 +200,15 @@ export default function InvoicesPage() {
             )}
           </tbody>
         </table>
+        {paged && (
+          <Pagination 
+            page={page} 
+            totalPages={paged.total_pages} 
+            pageSize={pageSize}
+            onPageChange={setPage} 
+            onPageSizeChange={(s) => { setPageSize(s); setPage(1) }}
+          />
+        )}
       </div>
 
       {/* Detail modal */}
@@ -204,7 +218,7 @@ export default function InvoicesPage() {
           onClick={() => setDetail(null)}
         >
           <div
-            className="w-full max-w-2xl rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 dark:border-zinc-700">

@@ -7,24 +7,40 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models import Batch, Product
 from app.schemas.batch import BatchOut
+from app.schemas.batch import BatchOut
 from app.schemas.product import ProductCreate, ProductOut, ProductUpdate
+from app.schemas.pagination import PaginatedResponse
 
 router = APIRouter()
 
 
-@router.get("", response_model=list[ProductOut])
+@router.get("", response_model=PaginatedResponse[ProductOut])
 def list_products(
     db: Session = Depends(get_db),
     active_only: bool = Query(True),
     q: str | None = Query(None, description="Search name or sku"),
-) -> list[Product]:
+    page: int = Query(1, ge=1),
+    size: int = Query(50, ge=1, le=100),
+) -> dict:
     stmt = db.query(Product)
     if active_only:
         stmt = stmt.filter(Product.is_active.is_(True))
     if q:
         like = f"%{q}%"
         stmt = stmt.filter((Product.name.ilike(like)) | (Product.sku.ilike(like)))
-    return stmt.order_by(Product.name.asc()).all()
+    
+    total = stmt.count()
+    total_pages = (total + size - 1) // size
+    
+    items = stmt.order_by(Product.name.asc()).offset((page - 1) * size).limit(size).all()
+    
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "size": size,
+        "total_pages": total_pages
+    }
 
 
 @router.post("", response_model=ProductOut, status_code=201)

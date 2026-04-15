@@ -117,14 +117,14 @@ Lần sau (đã cache) chỉ ~1–3 phút.
 
 | File | Định dạng | Ghi chú |
 |------|-----------|---------|
-| `bundle\nsis\Warehouse POS_0.2.0_x64-setup.exe` | NSIS installer | **Khuyên dùng** — nhỏ hơn, cài/gỡ gọn |
-| `bundle\msi\Warehouse POS_0.2.0_x64_en-US.msi` | MSI | Chuẩn doanh nghiệp Windows |
+| `bundle\nsis\Warehouse POS_0.2.2_x64-setup.exe` | NSIS installer | **Khuyên dùng** — nhỏ hơn, cài/gỡ gọn |
+| `bundle\msi\Warehouse POS_0.2.2_x64_en-US.msi` | MSI | Chuẩn doanh nghiệp Windows |
 
 Đường dẫn đầy đủ:
 ```
 frontend\src-tauri\target\release\bundle\
-  ├── nsis\Warehouse POS_0.2.0_x64-setup.exe   ← gửi file này
-  └── msi\Warehouse POS_0.2.0_x64_en-US.msi
+  ├── nsis\Warehouse POS_0.2.2_x64-setup.exe   ← gửi file này
+  └── msi\Warehouse POS_0.2.2_x64_en-US.msi
 ```
 
 ---
@@ -186,7 +186,7 @@ Khi sửa code và muốn ra bản mới:
 
 1. Tăng version trong `frontend/src-tauri/tauri.conf.json`:
    ```json
-   "version": "0.2.0"
+   "version": "0.2.2"
    ```
 2. Chạy lại 3 bước build ở trên
 3. Gửi file `*-setup.exe` mới — người dùng cài đè, **data không mất**

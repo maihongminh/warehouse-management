@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiGet, apiPost } from '../api'
-import type { Batch, Product, SaleWithItems } from '../types'
+import type { Batch, PaginatedResponse, Product, SaleWithItems } from '../types'
 
 // 'base' = đơn vị nhỏ nhất (viên, miếng, ...)
 // 'main' = đơn vị chính (hộp, lốc, ...) khi conversion_rate > 1
@@ -17,6 +17,7 @@ type CartLine = {
 }
 
 type SaleStatus = 'draft' | 'completed' | 'cancelled'
+type SaleRow = Pick<SaleWithItems, 'id' | 'date' | 'total_amount' | 'status' | 'created_by'>
 
 const STATUS_LABEL: Record<SaleStatus, string> = {
   draft: 'Nháp',
@@ -67,13 +68,13 @@ export default function POS() {
   const [cancelPending, setCancelPending] = useState(false)
 
   // Drafts list panel
-  const [drafts, setDrafts] = useState<Pick<SaleWithItems, 'id' | 'date' | 'total_amount' | 'status' | 'created_by'>[]>([])
+  const [drafts, setDrafts] = useState<SaleRow[]>([])
   const [showDrafts, setShowDrafts] = useState(false)
 
   useEffect(() => {
-    const qs = q ? `?q=${encodeURIComponent(q)}` : ''
-    apiGet<Product[]>(`/products${qs}`)
-      .then(setProducts)
+    const qs = q ? `?q=${encodeURIComponent(q)}&size=20` : '?size=20'
+    apiGet<PaginatedResponse<Product>>(`/products${qs}`)
+      .then(res => setProducts(res.items))
       .catch((e: Error) => setErr(e.message))
   }, [q])
 
@@ -85,8 +86,8 @@ export default function POS() {
   }, [selected])
 
   const loadDrafts = () => {
-    apiGet<typeof drafts>('/sales?status=draft&limit=20')
-      .then(setDrafts)
+    apiGet<PaginatedResponse<SaleRow>>('/sales?status=draft&size=50')
+      .then(res => setDrafts(res.items))
       .catch(() => setDrafts([]))
   }
 
@@ -308,7 +309,9 @@ export default function POS() {
                           className="text-left"
                           onClick={() => setSelected((s) => s?.id === p.id ? null : p)}
                         >
-                          <p className="font-medium">{p.name}</p>
+                          <p className="font-medium">
+                            {p.name} <span className="text-xs font-normal text-zinc-500">({p.unit})</span>
+                          </p>
                           <p className="text-xs font-mono text-zinc-400">{p.sku}</p>
                         </button>
                       </td>
@@ -394,7 +397,7 @@ export default function POS() {
 
           {/* Cart items */}
           {cart.length > 0 && (
-            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
               {cart.map((l) => (
                 <div
                   key={l.key}

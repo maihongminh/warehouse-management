@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { apiGet, apiPost } from '../api'
-import type { ProductInventory } from '../types'
+import type { PaginatedResponse, ProductInventory } from '../types'
+import Pagination from '../components/Pagination'
 
 type FlatRow = {
   productId: number
@@ -16,27 +17,29 @@ type FlatRow = {
 }
 
 export default function StockTakePage() {
-  const [rows, setRows] = useState<ProductInventory[]>([])
+  const [paged, setPaged] = useState<PaginatedResponse<ProductInventory> | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(50)
   const [filter, setFilter] = useState('')
   const [draft, setDraft] = useState<Record<number, string>>({})
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
-  const load = useCallback(() => {
-    apiGet<ProductInventory[]>('/inventory/products')
-      .then(setRows)
+  const load = useCallback((targetPage: number = page, targetSize: number = pageSize) => {
+    const qs = `page=${targetPage}&size=${targetSize}${filter ? `&q=${encodeURIComponent(filter)}` : ''}`
+    apiGet<PaginatedResponse<ProductInventory>>(`/inventory/products?${qs}`)
+      .then(setPaged)
       .catch((e: Error) => setErr(e.message))
-  }, [])
+  }, [filter, page, pageSize])
 
   useEffect(() => {
-    load()
-  }, [load])
+    load(page, pageSize)
+  }, [load, page, pageSize])
 
   const flat = useMemo(() => {
-    const f = filter.trim().toLowerCase()
     const out: FlatRow[] = []
-    for (const p of rows) {
-      if (f && !p.name.toLowerCase().includes(f) && !p.sku.toLowerCase().includes(f)) continue
+    if (!paged) return out
+    for (const p of paged.items) {
       for (const b of p.batches) {
         out.push({
           productId: p.id,
@@ -51,7 +54,7 @@ export default function StockTakePage() {
       }
     }
     return out
-  }, [rows, filter])
+  }, [paged])
 
   const applyRow = (batchId: number, e: FormEvent) => {
     e.preventDefault()
@@ -94,10 +97,11 @@ export default function StockTakePage() {
           placeholder="Lọc tên hoặc SKU…"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && (setPage(1), load(1))}
         />
         <button
           type="button"
-          onClick={load}
+          onClick={() => { setPage(1); load(1) }}
           className="rounded-lg border border-zinc-300 px-4 py-2 dark:border-zinc-600"
         >
           Làm mới
@@ -156,6 +160,15 @@ export default function StockTakePage() {
           </tbody>
         </table>
         {flat.length === 0 ? <p className="p-4 text-zinc-500">Không có lô nào (hoặc chưa nhập kho).</p> : null}
+        {paged && (
+          <Pagination 
+            page={page} 
+            totalPages={paged.total_pages} 
+            pageSize={pageSize}
+            onPageChange={setPage} 
+            onPageSizeChange={(s) => { setPageSize(s); setPage(1) }}
+          />
+        )}
       </div>
     </div>
   )

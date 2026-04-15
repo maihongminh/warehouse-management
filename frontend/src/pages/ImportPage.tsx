@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateA
 import type { FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { apiGet, apiPatch, apiPost, apiUpload } from '../api'
-import type { ImportReceiptListItem, ImportReceiptOut, Product } from '../types'
+import type { ImportReceiptListItem, ImportReceiptOut, PaginatedResponse, Product } from '../types'
+import Pagination from '../components/Pagination'
 
 type Line = {
   key: string
@@ -98,7 +99,9 @@ export default function ImportPage() {
   }
 
   // History
-  const [history, setHistory] = useState<ImportReceiptListItem[]>([])
+  const [pagedHistory, setPagedHistory] = useState<PaginatedResponse<ImportReceiptListItem> | null>(null)
+  const [historyPage, setHistoryPage] = useState(1)
+  const [historyPageSize, setHistoryPageSize] = useState(50)
   const [histErr, setHistErr] = useState<string | null>(null)
   const [histLoading, setHistLoading] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
@@ -156,7 +159,7 @@ export default function ImportPage() {
   }, [searchParams])
 
   // Load history
-  const loadHistory = useCallback((f: HistoryFilter) => {
+  const loadHistory = useCallback((f: HistoryFilter, targetPage: number = historyPage, targetSize: number = historyPageSize) => {
     setHistLoading(true)
     setHistErr(null)
     const params = new URLSearchParams()
@@ -166,16 +169,19 @@ export default function ImportPage() {
     if (f.dateFrom) params.set('date_from', f.dateFrom)
     if (f.dateTo) params.set('date_to', f.dateTo)
     if (f.supplier) params.set('supplier', f.supplier)
-    params.set('limit', '50')
-    apiGet<ImportReceiptListItem[]>(`/import-receipts?${params.toString()}`)
-      .then(setHistory)
+    
+    params.set('page', String(targetPage))
+    params.set('size', String(targetSize))
+
+    apiGet<PaginatedResponse<ImportReceiptListItem>>(`/import-receipts?${params.toString()}`)
+      .then(setPagedHistory)
       .catch((e: Error) => setHistErr(e.message))
       .finally(() => setHistLoading(false))
-  }, [])
+  }, [historyPage, historyPageSize])
 
   useEffect(() => {
-    loadHistory(defaultFilter())
-  }, [loadHistory])
+    loadHistory(activeFilter, historyPage, historyPageSize)
+  }, [loadHistory, activeFilter, historyPage, historyPageSize])
 
   const addLine = () => setLines((L) => [...L, newLine()])
   const removeLine = (key: string) =>
@@ -240,15 +246,18 @@ export default function ImportPage() {
   }
 
   const applyFilter = () => {
-    setActiveFilter({ ...filter })
-    loadHistory(filter)
+    const f = { ...filter }
+    setActiveFilter(f)
+    setHistoryPage(1)
+    loadHistory(f, 1)
   }
 
   const clearFilter = () => {
     const f = defaultFilter()
     setFilter(f)
     setActiveFilter(f)
-    loadHistory(f)
+    setHistoryPage(1)
+    loadHistory(f, 1)
   }
 
   return (
@@ -469,12 +478,12 @@ export default function ImportPage() {
                 <tr>
                   <td colSpan={8} className="px-3 py-6 text-center text-zinc-400">Đang tải...</td>
                 </tr>
-              ) : history.length === 0 ? (
+              ) : !pagedHistory || pagedHistory.items.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-3 py-6 text-center text-zinc-400">Chưa có phiếu nhập nào.</td>
                 </tr>
               ) : (
-                history.map((r) => (
+                pagedHistory.items.map((r) => (
                   <tr key={r.id} className="border-t border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
                     <td className="px-3 py-2 font-mono text-xs text-zinc-500">#{r.id}</td>
                     <td className="px-3 py-2">{r.date}</td>
@@ -518,6 +527,15 @@ export default function ImportPage() {
               )}
             </tbody>
           </table>
+          {pagedHistory && (
+            <Pagination 
+              page={historyPage} 
+              totalPages={pagedHistory.total_pages} 
+              pageSize={historyPageSize}
+              onPageChange={setHistoryPage} 
+              onPageSizeChange={(s) => { setHistoryPageSize(s); setHistoryPage(1) }}
+            />
+          )}
         </div>
       </section>
 
@@ -563,7 +581,7 @@ export default function ImportPage() {
           onClick={() => setDetailReceipt(null)}
         >
           <div
-            className="w-full max-w-2xl rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 dark:border-zinc-700">
@@ -662,8 +680,8 @@ function ImportLineRow({
       return
     }
     const t = window.setTimeout(() => {
-      apiGet<Product[]>(`/products?q=${encodeURIComponent(q)}`)
-        .then(setSuggestions)
+      apiGet<PaginatedResponse<Product>>(`/products?size=10&q=${encodeURIComponent(q)}`)
+        .then(res => setSuggestions(res.items))
         .catch(() => setSuggestions([]))
     }, 280)
     return () => window.clearTimeout(t)

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { apiGet } from '../api'
-import type { Batch } from '../types'
+import type { Batch, PaginatedResponse } from '../types'
+import Pagination from '../components/Pagination'
 
 type PeriodSummary = {
   date_from: string
@@ -28,31 +29,39 @@ export default function ReportsPage() {
   const [from, setFrom] = useState(init.from)
   const [to, setTo] = useState(init.to)
   const [summary, setSummary] = useState<PeriodSummary | null>(null)
-  const [expiring, setExpiring] = useState<Batch[]>([])
+  const [expiringPaged, setExpiringPaged] = useState<PaginatedResponse<Batch> | null>(null)
+  const [expiringPage, setExpiringPage] = useState(1)
+  const [expiringPageSize, setExpiringPageSize] = useState(50)
   const [err, setErr] = useState<string | null>(null)
 
-  const load = useCallback(() => {
+  const loadParams = useCallback(() => {
     setErr(null)
     const q = `date_from=${encodeURIComponent(from)}&date_to=${encodeURIComponent(to)}`
-    Promise.all([
-      apiGet<PeriodSummary>(`/reports/period?${q}`),
-      apiGet<Batch[]>('/inventory/batches/expiring?days=30'),
-    ])
-      .then(([s, ex]) => {
-        setSummary(s)
-        setExpiring(ex)
-      })
+    apiGet<PeriodSummary>(`/reports/period?${q}`)
+      .then(setSummary)
       .catch((e: Error) => setErr(e.message))
   }, [from, to])
 
-  const onSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    load()
-  }
+  const loadExpiring = useCallback((p: number = expiringPage, s: number = expiringPageSize) => {
+    apiGet<PaginatedResponse<Batch>>(`/inventory/batches/expiring?days=30&page=${p}&size=${s}`)
+      .then(setExpiringPaged)
+      .catch((e: Error) => setErr(e.message))
+  }, [expiringPage, expiringPageSize])
 
   useEffect(() => {
-    load()
-  }, [load])
+    loadParams()
+  }, [loadParams])
+
+  useEffect(() => {
+    loadExpiring(expiringPage, expiringPageSize)
+  }, [loadExpiring, expiringPage, expiringPageSize])
+
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault()
+    loadParams()
+    loadExpiring(1)
+    setExpiringPage(1)
+  }
 
   return (
     <div className="space-y-10">
@@ -127,7 +136,7 @@ export default function ReportsPage() {
               </tr>
             </thead>
             <tbody>
-              {expiring.map((b) => {
+              {expiringPaged?.items.map((b) => {
                 const days = Math.ceil((new Date(b.expiry_date).getTime() - Date.now()) / 86400000)
                 return (
                   <tr
@@ -149,9 +158,18 @@ export default function ReportsPage() {
               })}
             </tbody>
           </table>
-          {expiring.length === 0 && summary ? (
+          {expiringPaged && expiringPaged.items.length === 0 && summary ? (
             <p className="p-4 text-zinc-500">Không có lô trong cửa sổ 30 ngày.</p>
           ) : null}
+          {expiringPaged && (
+            <Pagination 
+              page={expiringPage} 
+              totalPages={expiringPaged.total_pages} 
+              pageSize={expiringPageSize}
+              onPageChange={setExpiringPage} 
+              onPageSizeChange={(s) => { setExpiringPageSize(s); setExpiringPage(1) }}
+            />
+          )}
         </div>
       </section>
     </div>

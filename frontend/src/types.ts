@@ -84,3 +84,11 @@ export type ImportReceiptOut = {
   total_amount: string
   items: ImportItemOut[]
 }
+
+export type PaginatedResponse<T> = {
+  items: T[]
+  total: number
+  page: number
+  size: number
+  total_pages: number
+}
