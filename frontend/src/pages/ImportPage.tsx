@@ -85,6 +85,8 @@ export default function ImportPage() {
           key: crypto.randomUUID(),
           product_id: row.product_id,
           product_summary: row.product_summary,
+          conversion_rate: 1,
+          is_base_unit: false,
           pickQuery: '',
           quantity: row.quantity,
           import_price: row.import_price,
@@ -460,7 +462,7 @@ export default function ImportPage() {
                         <span className="text-xs font-mono text-zinc-500">{p.sku}</span>
                       </div>
                       <div className="mt-0.5 text-xs text-zinc-500">
-                        Giá vốn: {fmt(p.default_import_price || 0)}đ · Tồn kho: {p.total_quantity || 0}
+                        Giá vốn/Giá bán: {fmt(p.default_import_price || 0)}đ / {fmt(p.default_sale_price || 0)}đ
                       </div>
                     </button>
                   </li>
@@ -808,7 +810,6 @@ function ImportLineRow({
   index,
   line,
   setLines,
-  onSelectProduct,
   onRemove,
 }: {
   index: number
