@@ -8,6 +8,7 @@ import POS from './pages/POS'
 import Products from './pages/Products'
 import ReportsPage from './pages/ReportsPage'
 import StockTakePage from './pages/StockTakePage'
+import SuppliersPage from './pages/SuppliersPage'
 
 const nav = [
   { to: '/', label: 'Dashboard' },
@@ -15,6 +16,7 @@ const nav = [
   { to: '/products', label: 'Sản phẩm' },
   { to: '/inventory', label: 'Kho' },
   { to: '/import', label: 'Nhập kho' },
+  { to: '/suppliers', label: 'Nhà CC' },
   { to: '/stock-take', label: 'Kiểm kho' },
   { to: '/invoices', label: 'Hóa đơn' },
   { to: '/reports', label: 'Báo cáo' },
@@ -55,6 +57,7 @@ export default function App() {
           <Route path="/products" element={<Products />} />
           <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/import" element={<ImportPage />} />
+          <Route path="/suppliers" element={<SuppliersPage />} />
           <Route path="/stock-take" element={<StockTakePage />} />
           <Route path="/invoices" element={<InvoicesPage />} />
           <Route path="/reports" element={<ReportsPage />} />

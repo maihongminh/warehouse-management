@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import type { FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { apiGet, apiPatch, apiPost, apiUpload, apiDelete } from '../api'
+import { apiGet, apiPatch, apiPost, apiUpload } from '../api'
 import type { ImportReceiptListItem, ImportReceiptOut, PaginatedResponse, Product, Supplier } from '../types'
 import Pagination from '../components/Pagination'
 import ConfirmDialog from '../components/ConfirmDialog'
-import SupplierQuickAddModal from '../components/SupplierQuickAddModal'
 
 type Line = {
   key: string
@@ -59,8 +58,6 @@ export default function ImportPage() {
   const [isDebt, setIsDebt] = useState(false)
   const [supplierId, setSupplierId] = useState<number | ''>('')
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
-  const [showAddSupplier, setShowAddSupplier] = useState(false)
-  const [deletingSupplierId, setDeletingSupplierId] = useState<number | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   // Confirm dialog for submit
@@ -135,19 +132,6 @@ export default function ImportPage() {
 
   useEffect(() => { loadSuppliers() }, [loadSuppliers])
 
-  const handleDeleteSupplier = async () => {
-    if (!deletingSupplierId) return
-    try {
-      await apiDelete(`/suppliers/${deletingSupplierId}`)
-      setSuppliers(prev => prev.filter(s => s.id !== deletingSupplierId))
-      if (supplierId === deletingSupplierId) {
-        setSupplierId('')
-      }
-      setDeletingSupplierId(null)
-    } catch (e: any) {
-      alert(e.message || 'Lỗi khi xóa nhà cung cấp')
-    }
-  }
 
   const [globalQuery, setGlobalQuery] = useState('')
   const [globalSuggestions, setGlobalSuggestions] = useState<Product[]>([])
@@ -379,39 +363,21 @@ export default function ImportPage() {
             </label>
             <label className="flex flex-col gap-1 text-sm sm:col-span-2">
               <span>Nhà cung cấp <span className="text-red-500">*</span></span>
-              <div className="flex gap-2">
-                <select
-                  className={`flex-1 rounded border px-2 py-1.5 dark:bg-zinc-900 ${
-                    supplierId
-                      ? 'border-zinc-300 dark:border-zinc-600'
-                      : 'border-red-400 dark:border-red-600'
-                  }`}
-                  value={supplierId}
-                  onChange={(e) => setSupplierId(e.target.value ? Number(e.target.value) : '')}
-                >
-                  <option value="">-- Chọn nhà cung cấp --</option>
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}{s.phone ? ` · ${s.phone}` : ''}</option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setShowAddSupplier(true)}
-                  className="rounded border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 whitespace-nowrap"
-                >
-                  + Thêm NCC
-                </button>
-                {supplierId !== '' && (
-                  <button
-                    type="button"
-                    onClick={() => setDeletingSupplierId(Number(supplierId))}
-                    className="rounded border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300 whitespace-nowrap"
-                    title="Xóa nhà cung cấp này"
-                  >
-                    Xóa
-                  </button>
-                )}
-              </div>
+              <select
+                className={`flex-1 rounded border px-2 py-1.5 dark:bg-zinc-900 ${
+                  supplierId
+                    ? 'border-zinc-300 dark:border-zinc-600'
+                    : 'border-red-400 dark:border-red-600'
+                }`}
+                value={supplierId}
+                onChange={(e) => setSupplierId(e.target.value ? Number(e.target.value) : '')}
+              >
+                <option value="">-- Chọn nhà cung cấp --</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}{s.phone ? ` · ${s.phone}` : ''}</option>
+                ))}
+              </select>
+              <span className="text-xs text-zinc-400">Ẩn quản lý tại <a href="/suppliers" className="text-emerald-600 hover:underline">màn hình Nhà CC</a></span>
             </label>
             <label className="flex items-center gap-2 text-sm pt-5">
               <input
@@ -700,28 +666,7 @@ export default function ImportPage() {
         onCancel={() => setPayTarget(null)}
       />
 
-      {/* Delete Supplier Confirm */}
-      <ConfirmDialog
-        open={deletingSupplierId !== null}
-        title="Xác nhận xóa nhà cung cấp"
-        message="Trường hợp không còn hợp tác, bạn có thể xóa nhà cung cấp này. Lịch sử nhập kho cũ vẫn được giữ nguyên."
-        confirmLabel="Xóa NCC"
-        confirmVariant="danger"
-        onConfirm={handleDeleteSupplier}
-        onCancel={() => setDeletingSupplierId(null)}
-      />
-
-      {/* Supplier quick add modal */}
-      {showAddSupplier && (
-        <SupplierQuickAddModal
-          onCreated={(s) => {
-            setSuppliers((prev) => [...prev, s])
-            setSupplierId(s.id)
-            setShowAddSupplier(false)
-          }}
-          onClose={() => setShowAddSupplier(false)}
-        />
-      )}
+      {/* Delete Supplier Confirm - moved to SuppliersPage */}
 
       {/* ─── Detail Modal ───────────────────────────────────────────── */}
       {(detailReceipt || detailLoading) && (
