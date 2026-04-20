@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Warehouse POS",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "identifier": "vn.local.warehouse.pos",
   "build": {
     "frontendDist": "../dist",

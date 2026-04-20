@@ -31,7 +31,7 @@ fn kill_backend(app: &tauri::AppHandle) {
   #[cfg(target_os = "windows")]
   {
     let _ = std::process::Command::new("taskkill")
-      .args(["/F", "/IM", "wm-backend.exe"])
+      .args(["/F", "/IM", "wm-backend*.exe"])
       .creation_flags(0x08000000) // CREATE_NO_WINDOW — run silently
       .spawn();
   }
@@ -67,7 +67,7 @@ pub fn run() {
       let mut env: HashMap<String, String> = HashMap::new();
       env.insert("WM_DATABASE_URL".into(), db_url);
       env.insert("WM_HOST".into(), "127.0.0.1".into());
-      env.insert("WM_PORT".into(), "8002".into());
+      env.insert("WM_PORT".into(), "14802".into());
 
       // ── Windows Network Isolation fix ────────────────────────────────────
       // WebView2 on some Windows machines cannot connect to localhost by default
@@ -88,7 +88,7 @@ pub fn run() {
       #[cfg(target_os = "windows")]
       {
         let _ = std::process::Command::new("taskkill")
-          .args(["/F", "/IM", "wm-backend.exe"])
+          .args(["/F", "/IM", "wm-backend*.exe"])
           .creation_flags(0x08000000)
           .spawn();
         // Small delay so the port is freed before we bind again.
