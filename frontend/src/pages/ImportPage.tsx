@@ -11,6 +11,8 @@ type Line = {
   key: string
   product_id: number | null
   product_summary: string
+  conversion_rate: number
+  is_base_unit: boolean
   pickQuery: string
   quantity: string
   import_price: string
@@ -18,18 +20,18 @@ type Line = {
   expiry_date: string
 }
 
-function newLine(): Line {
-  return {
-    key: crypto.randomUUID(),
-    product_id: null,
-    product_summary: '',
-    pickQuery: '',
-    quantity: '1',
-    import_price: '0',
-    batch_code: '',
-    expiry_date: '',
-  }
-}
+const newLine = (): Line => ({
+  key: Math.random().toString(36).slice(2),
+  product_id: null,
+  product_summary: '',
+  conversion_rate: 1,
+  is_base_unit: false,
+  pickQuery: '',
+  quantity: '1',
+  import_price: '0',
+  batch_code: '',
+  expiry_date: '',
+})
 
 function fmt(n: string | number) {
   return Number(n).toLocaleString('vi-VN')
@@ -145,20 +147,45 @@ export default function ImportPage() {
     }
   }
 
-  const applyProductToLine = useCallback((lineKey: string, p: Product) => {
-    setLines((L) =>
-      L.map((x) =>
-        x.key === lineKey
-          ? {
-              ...x,
-              product_id: p.id,
-              product_summary: `${p.name} · ${p.sku}`,
-              pickQuery: '',
-              import_price: String(p.default_import_price ?? '0'),
-            }
-          : x,
-      ),
-    )
+  const [globalQuery, setGlobalQuery] = useState('')
+  const [globalSuggestions, setGlobalSuggestions] = useState<Product[]>([])
+  const [globalSearchOpen, setGlobalSearchOpen] = useState(false)
+
+  useEffect(() => {
+    const q = globalQuery.trim()
+    if (!q) {
+      setGlobalSuggestions([])
+      return
+    }
+    const t = window.setTimeout(() => {
+      apiGet<PaginatedResponse<Product>>(`/products?size=20&q=${encodeURIComponent(q)}`)
+        .then(res => setGlobalSuggestions(res.items))
+        .catch(() => setGlobalSuggestions([]))
+    }, 280)
+    return () => window.clearTimeout(t)
+  }, [globalQuery])
+
+  const addProductToImport = useCallback((p: Product) => {
+    setLines((L) => {
+      const emptyIdx = L.findIndex((x) => !x.product_id)
+      const lineData = {
+        product_id: p.id,
+        product_summary: `${p.name} · ${p.sku}`,
+        conversion_rate: p.conversion_rate || 1,
+        is_base_unit: false,
+        pickQuery: '',
+        quantity: '1',
+        import_price: String(p.default_import_price ?? '0'),
+      }
+      if (emptyIdx !== -1) {
+        const newL = [...L]
+        newL[emptyIdx] = { ...newL[emptyIdx], ...lineData }
+        return newL
+      }
+      return [...L, { ...newLine(), ...lineData }]
+    })
+    setGlobalQuery('')
+    setGlobalSearchOpen(false)
   }, [])
 
   // Prefill from URL query param
@@ -177,6 +204,8 @@ export default function ImportPage() {
               ...first,
               product_id: p.id,
               product_summary: `${p.name} · ${p.sku}`,
+              conversion_rate: p.conversion_rate || 1,
+              is_base_unit: false,
               pickQuery: '',
               import_price: String(p.default_import_price ?? '0'),
             },
@@ -234,7 +263,7 @@ export default function ImportPage() {
         .filter((l) => l.product_id != null && l.expiry_date)
         .map((l) => ({
           product_id: l.product_id as number,
-          quantity: Number(l.quantity),
+          quantity: l.is_base_unit ? Number(l.quantity) / l.conversion_rate : Number(l.quantity),
           import_price: l.import_price,
           batch_code: l.batch_code,
           expiry_date: l.expiry_date,
@@ -402,6 +431,44 @@ export default function ImportPage() {
             </div>
           )}
 
+          <div className="relative z-10 pt-4">
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Thêm sản phẩm vào phiếu nhập
+              <input
+                autoFocus
+                className="rounded-lg border border-zinc-300 px-4 py-3 shadow-sm dark:border-zinc-600 dark:bg-zinc-900"
+                placeholder="Gõ tên hoặc SKU sản phẩm để tìm kiếm..."
+                value={globalQuery}
+                onChange={(e) => {
+                  setGlobalQuery(e.target.value)
+                  setGlobalSearchOpen(true)
+                }}
+                onFocus={() => setGlobalSearchOpen(true)}
+              />
+            </label>
+            {globalSearchOpen && globalQuery.trim() && globalSuggestions.length > 0 && (
+              <ul className="absolute left-0 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-800">
+                {globalSuggestions.map((p) => (
+                  <li key={p.id} className="border-b border-zinc-100 last:border-0 dark:border-zinc-700/50">
+                    <button
+                      type="button"
+                      onClick={() => addProductToImport(p)}
+                      className="w-full px-4 py-3 text-left hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-emerald-800 dark:text-emerald-400">{p.name}</span>
+                        <span className="text-xs font-mono text-zinc-500">{p.sku}</span>
+                      </div>
+                      <div className="mt-0.5 text-xs text-zinc-500">
+                        Giá vốn: {fmt(p.default_import_price || 0)}đ · Tồn kho: {p.total_quantity || 0}
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <div className="space-y-4">
             {lines.map((line, i) => (
               <ImportLineRow
@@ -409,22 +476,21 @@ export default function ImportPage() {
                 index={i}
                 line={line}
                 setLines={setLines}
-                onSelectProduct={applyProductToLine}
                 onRemove={() => removeLine(line.key)}
               />
             ))}
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 pt-2">
             <button
               type="button"
               onClick={addLine}
-              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-600"
+              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-600 hidden"
             >
               + Thêm dòng
             </button>
-            <button type="submit" className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white hover:bg-emerald-700">
-              Ghi nhận nhập kho
+            <button type="submit" className="rounded-lg bg-emerald-600 px-8 py-3 font-semibold text-white shadow hover:bg-emerald-700 ml-auto">
+              Chốt Ghi Tạm / Lưu Phiếu Nhập
             </button>
           </div>
           {msg ? <p className="text-emerald-700 dark:text-emerald-400">{msg}</p> : null}
@@ -748,28 +814,15 @@ function ImportLineRow({
   index: number
   line: Line
   setLines: Dispatch<SetStateAction<Line[]>>
-  onSelectProduct: (lineKey: string, p: Product) => void
   onRemove: () => void
 }) {
-  const [suggestions, setSuggestions] = useState<Product[]>([])
-  const [open, setOpen] = useState(false)
-
-  useEffect(() => {
-    const q = line.pickQuery.trim()
-    if (!q) {
-      setSuggestions([])
-      return
-    }
-    const t = window.setTimeout(() => {
-      apiGet<PaginatedResponse<Product>>(`/products?size=10&q=${encodeURIComponent(q)}`)
-        .then(res => setSuggestions(res.items))
-        .catch(() => setSuggestions([]))
-    }, 280)
-    return () => window.clearTimeout(t)
-  }, [line.pickQuery])
+  // Hide completely empty lines if they are just placeholders waiting to be replaced
+  if (!line.product_id) {
+    return null
+  }
 
   return (
-    <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
+    <div className={`rounded-xl border ${!line.product_id ? 'border-dashed border-zinc-300 dark:border-zinc-600' : 'border-emerald-200 bg-emerald-50/30 dark:border-emerald-900/30 dark:bg-emerald-900/10'} p-4`}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">Dòng {index + 1}</span>
         <button type="button" onClick={onRemove} className="text-xs text-red-600 hover:underline">
@@ -777,56 +830,36 @@ function ImportLineRow({
         </button>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-6">
-        <div className="relative lg:col-span-2">
-          <label className="flex flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
-            Sản phẩm (gõ tên hoặc SKU)
-            <input
-              className="rounded border border-zinc-300 px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900"
-              placeholder="Tìm và chọn…"
-              value={line.product_id ? line.product_summary : line.pickQuery}
-              onChange={(e) => {
-                const v = e.target.value
-                setLines((L) =>
-                  L.map((x) =>
-                    x.key === line.key
-                      ? { ...x, product_id: null, product_summary: '', pickQuery: v }
-                      : x,
-                  ),
-                )
-                setOpen(true)
-              }}
-              onFocus={() => { if (line.product_id) return; setOpen(true) }}
-            />
-          </label>
-          {open && !line.product_id && line.pickQuery.trim() && suggestions.length > 0 ? (
-            <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-900">
-              {suggestions.map((p) => (
-                <li key={p.id}>
-                  <button
-                    type="button"
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                    onClick={() => { onSelectProduct(line.key, p); setOpen(false) }}
-                  >
-                    <span className="font-medium">{p.name}</span>
-                    <span className="ml-2 font-mono text-zinc-500">{p.sku}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
+      <div className="grid gap-3 lg:grid-cols-6 items-end">
+        <div className="lg:col-span-2 flex flex-col justify-center">
+          <span className="text-xs text-zinc-500 mb-1">Sản phẩm</span>
+          <div className="font-semibold text-sm">
+            {line.product_id ? line.product_summary : <span className="italic text-zinc-400">Chưa chọn sản phẩm...</span>}
+          </div>
         </div>
 
         <label className="flex flex-col gap-1 text-xs">
           Số lượng
-          <input
-            className="rounded border border-zinc-300 px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900"
-            value={line.quantity}
-            onChange={(e) => {
-              const v = e.target.value
-              setLines((L) => L.map((x) => (x.key === line.key ? { ...x, quantity: v } : x)))
-            }}
-          />
+          <div className="flex">
+            <input
+              className={`min-w-0 flex-1 rounded-l border border-zinc-300 px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900 ${line.conversion_rate > 1 ? '' : 'rounded-r'}`}
+              value={line.quantity}
+              onChange={(e) => {
+                const v = e.target.value
+                setLines((L) => L.map((x) => (x.key === line.key ? { ...x, quantity: v } : x)))
+              }}
+            />
+            {line.conversion_rate > 1 && (
+              <button
+                type="button"
+                onClick={() => setLines((L) => L.map((x) => x.key === line.key ? { ...x, is_base_unit: !x.is_base_unit } : x))}
+                className={`rounded-r border-y border-r border-zinc-300 px-2 py-1.5 font-medium transition-colors dark:border-zinc-600 ${line.is_base_unit ? 'bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-200' : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-200'}`}
+                title={line.is_base_unit ? `Đang nhập theo lẻ. Tỉ lệ: 1:${line.conversion_rate}` : `Đang nhập theo hộp. Tỉ lệ: 1:${line.conversion_rate}`}
+              >
+                {line.is_base_unit ? 'Lẻ' : 'Hộp'}
+              </button>
+            )}
+          </div>
         </label>
         <label className="flex flex-col gap-1 text-xs">
           Giá nhập
