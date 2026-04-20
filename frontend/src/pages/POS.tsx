@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiGet, apiPost } from '../api'
 import type { Batch, PaginatedResponse, Product, SaleWithItems } from '../types'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 // 'base' = đơn vị nhỏ nhất (viên, miếng, ...)
 // 'main' = đơn vị chính (hộp, lốc, ...) khi conversion_rate > 1
@@ -34,11 +35,11 @@ function fmt(n: string | number) {
   return Number(n).toLocaleString('vi-VN')
 }
 
-/** Tính số lượng thực tế (viên) gửi lên API */
+/** Tính số lượng gửi lên API (theo đơn vị của Kho) */
 function actualQty(line: CartLine): number {
   return line.sell_unit === 'main'
-    ? line.quantity * (line.product.conversion_rate || 1)
-    : line.quantity
+    ? line.quantity 
+    : line.quantity / (line.product.conversion_rate || 1)
 }
 
 /** Tính đơn giá thực tế theo đơn vị đang chọn */
@@ -51,10 +52,12 @@ function priceForUnit(product: Product, unit: SellUnit): string {
   return String(Math.round(perBase))
 }
 
+type PosProduct = Product & { total_quantity: number }
+
 export default function POS() {
   const [q, setQ] = useState('')
-  const [products, setProducts] = useState<Product[]>([])
-  const [selected, setSelected] = useState<Product | null>(null)
+  const [products, setProducts] = useState<PosProduct[]>([])
+  const [selected, setSelected] = useState<PosProduct | null>(null)
   const [batches, setBatches] = useState<Batch[]>([])
   const [cart, setCart] = useState<CartLine[]>([])
   const [err, setErr] = useState<string | null>(null)
@@ -64,17 +67,18 @@ export default function POS() {
   const [draftSale, setDraftSale] = useState<SaleWithItems | null>(null)
   // Completed/cancelled result display
   const [resultSale, setResultSale] = useState<SaleWithItems | null>(null)
-  // Cancel confirm pending
-  const [cancelPending, setCancelPending] = useState(false)
+  // Confirm dialogs
+  const [checkoutConfirm, setCheckoutConfirm] = useState(false)
+  const [cancelConfirm, setCancelConfirm] = useState(false)
 
   // Drafts list panel
   const [drafts, setDrafts] = useState<SaleRow[]>([])
   const [showDrafts, setShowDrafts] = useState(false)
 
   useEffect(() => {
-    const qs = q ? `?q=${encodeURIComponent(q)}&size=20` : '?size=20'
-    apiGet<PaginatedResponse<Product>>(`/products${qs}`)
-      .then(res => setProducts(res.items))
+    const qs = q ? `?q=${encodeURIComponent(q)}&size=50` : '?size=50'
+    apiGet<PaginatedResponse<PosProduct>>(`/inventory/products${qs}`)
+      .then(res => setProducts(res.items.filter(p => p.total_quantity > 0).slice(0, 20)))
       .catch((e: Error) => setErr(e.message))
   }, [q])
 
@@ -91,7 +95,7 @@ export default function POS() {
       .catch(() => setDrafts([]))
   }
 
-  const addToCart = (p: Product) => {
+  const addToCart = (p: PosProduct) => {
     setErr(null)
     setCart((c) => {
       // Tìm dòng có cùng sản phẩm, cùng đơn vị, chưa chọn lô cụ thể
@@ -114,11 +118,11 @@ export default function POS() {
       
       return [...c, { 
         key: newLineKey,
-        product: p, 
+        product: p as unknown as Product, 
         batches: bData,
         selected_batch_id: null,
         quantity: 1, 
-        sale_price: priceForUnit(p, defaultUnit),
+        sale_price: priceForUnit(p as unknown as Product, defaultUnit),
         sell_unit: defaultUnit,
       }]
     })
@@ -173,6 +177,7 @@ export default function POS() {
   // ── Thanh toán (complete) ─────────────────────────────────────────
   const checkout = async () => {
     setErr(null)
+    setCheckoutConfirm(false)
     setLoading(true)
     try {
       let saleId = draftSale?.id
@@ -202,7 +207,7 @@ export default function POS() {
   const cancelSale = async () => {
     if (!draftSale) return
     setLoading(true)
-    setCancelPending(false)
+    setCancelConfirm(false)
     try {
       const cancelled = await apiPost<SaleWithItems>(`/sales/${draftSale.id}/cancel`, {})
       setResultSale(cancelled)
@@ -285,15 +290,15 @@ export default function POS() {
             onChange={(e) => setQ(e.target.value)}
           />
 
-          <div className="max-h-64 overflow-y-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
+          <div className="max-h-[32rem] overflow-y-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
             {products.length === 0 ? (
-              <p className="p-4 text-center text-sm text-zinc-400">Không tìm thấy sản phẩm.</p>
+              <p className="p-4 text-center text-sm text-zinc-400">Không tìm thấy sản phẩm có sẵn trong kho.</p>
             ) : (
               <table className="min-w-full text-sm">
-                <thead className="sticky top-0 bg-zinc-100 text-xs uppercase text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                <thead className="sticky top-0 bg-zinc-100 text-xs uppercase text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 z-10">
                   <tr>
                     <th className="px-3 py-2 text-left">Sản phẩm</th>
-                    <th className="px-3 py-2 text-right">Giá bán</th>
+                    <th className="px-3 py-2 text-right">Tồn kho / Giá bán</th>
                     <th className="px-3 py-2 text-center">Thêm</th>
                   </tr>
                 </thead>
@@ -315,8 +320,13 @@ export default function POS() {
                           <p className="text-xs font-mono text-zinc-400">{p.sku}</p>
                         </button>
                       </td>
-                      <td className="px-3 py-2 text-right tabular-nums text-zinc-600 dark:text-zinc-300">
-                        {fmt(p.default_sale_price)} ₫
+                      <td className="px-3 py-2 text-right">
+                        <p className="tabular-nums font-medium text-emerald-700 dark:text-emerald-400">
+                          Còn: {p.total_quantity}
+                        </p>
+                        <p className="tabular-nums text-xs text-zinc-500 dark:text-zinc-400">
+                          {fmt(p.default_sale_price)} ₫
+                        </p>
                       </td>
                       <td className="px-3 py-2 text-center">
                         <button
@@ -554,16 +564,16 @@ export default function POS() {
             <button
               type="button"
               disabled={loading || (cart.length === 0 && !draftSale)}
-              onClick={checkout}
+              onClick={() => setCheckoutConfirm(true)}
               className="flex-1 rounded-xl bg-emerald-600 py-2.5 font-medium text-white hover:bg-emerald-700 disabled:opacity-50 text-sm transition-colors"
             >
               {loading ? 'Đang xử lý...' : '✅ Thanh toán'}
             </button>
-            {draftSale && !cancelPending && (
+            {draftSale && (
               <button
                 type="button"
                 disabled={loading}
-                onClick={() => setCancelPending(true)}
+                onClick={() => setCancelConfirm(true)}
                 className="rounded-xl border border-red-300 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950/30 disabled:opacity-60"
               >
                 🗑 Hủy phiếu
@@ -571,31 +581,27 @@ export default function POS() {
             )}
           </div>
 
-          {/* Inline cancel confirm */}
-          {cancelPending && draftSale && (
-            <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 dark:border-red-800 dark:bg-red-950/30">
-              <p className="flex-1 text-sm text-red-700 dark:text-red-300">
-                Xác nhận hủy phiếu <strong>#{draftSale.id}</strong>?
-              </p>
-              <button
-                type="button"
-                disabled={loading}
-                onClick={cancelSale}
-                className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
-              >
-                {loading ? 'Đang hủy...' : 'Xác nhận hủy'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setCancelPending(false)}
-                className="rounded-lg border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-100 dark:border-red-700 dark:hover:bg-red-950/50"
-              >
-                Thôi
-              </button>
-            </div>
-          )}
-
           {err ? <p className="text-red-600 text-sm">{err}</p> : null}
+
+          {/* Confirm: Thanh toán */}
+          <ConfirmDialog
+            open={checkoutConfirm}
+            title="Xác nhận thanh toán"
+            message={`Tổng cộng: ${fmt(total || (draftSale ? draftSale.total_amount : 0))} ₫\nBạn có chắc muốn hoàn tất đơn hàng này?`}
+            confirmLabel="Thanh toán"
+            onConfirm={checkout}
+            onCancel={() => setCheckoutConfirm(false)}
+          />
+          {/* Confirm: Hủy phiếu */}
+          <ConfirmDialog
+            open={cancelConfirm}
+            title="Xác nhận hủy phiếu"
+            message={draftSale ? `Hủy phiếu nháp #${draftSale.id}?\nHành động này không thể hoàn tác.` : ''}
+            confirmLabel="Hủy phiếu"
+            confirmVariant="danger"
+            onConfirm={cancelSale}
+            onCancel={() => setCancelConfirm(false)}
+          />
 
           {/* Result card */}
           {resultSale && (

@@ -11,6 +11,7 @@ from sqlalchemy import (
     Index,
     Integer,
     Numeric,
+    Float,
     String,
     UniqueConstraint,
     func,
@@ -32,6 +33,18 @@ class InventoryChangeType(str, enum.Enum):
     sale = "sale"
     adjust = "adjust"
     return_ = "return"
+
+
+class Supplier(Base):
+    __tablename__ = "suppliers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    note: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Product(Base):
@@ -64,7 +77,7 @@ class Batch(Base):
     batch_code: Mapped[str] = mapped_column(String(64), default="")
     expiry_date: Mapped[date] = mapped_column(Date, nullable=False)
     import_price: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
-    quantity_remaining: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    quantity_remaining: Mapped[float] = mapped_column(Float, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     product: Mapped["Product"] = relationship(back_populates="batches")
@@ -90,7 +103,7 @@ class ImportItem(Base):
     receipt_id: Mapped[int] = mapped_column(ForeignKey("import_receipts.id"), nullable=False)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
     batch_id: Mapped[int] = mapped_column(ForeignKey("batches.id"), nullable=False)
-    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    quantity: Mapped[float] = mapped_column(Float, nullable=False)
     import_price: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
 
     receipt: Mapped["ImportReceipt"] = relationship(back_populates="items")
@@ -119,7 +132,7 @@ class SaleItem(Base):
     sale_id: Mapped[int] = mapped_column(ForeignKey("sales.id"), nullable=False)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
     batch_id: Mapped[int | None] = mapped_column(ForeignKey("batches.id"), nullable=True)
-    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    quantity: Mapped[float] = mapped_column(Float, nullable=False)
     sale_price: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
     import_price_snapshot: Mapped[float | None] = mapped_column(Numeric(14, 2), nullable=True)
 
@@ -134,7 +147,7 @@ class InventoryLog(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
     batch_id: Mapped[int] = mapped_column(ForeignKey("batches.id"), nullable=False)
-    change_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    change_quantity: Mapped[float] = mapped_column(Float, nullable=False)
     type: Mapped[InventoryChangeType] = mapped_column(
         SAEnum(InventoryChangeType, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
@@ -148,7 +161,35 @@ class StockAdjustment(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     batch_id: Mapped[int] = mapped_column(ForeignKey("batches.id"), nullable=False)
-    system_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
-    actual_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
-    difference: Mapped[int] = mapped_column(Integer, nullable=False)
+    system_quantity: Mapped[float] = mapped_column(Float, nullable=False)
+    actual_quantity: Mapped[float] = mapped_column(Float, nullable=False)
+    difference: Mapped[float] = mapped_column(Float, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SaleReturn(Base):
+    """Phếu trả hàng từ một hóa đơn đã hoàn tất."""
+    __tablename__ = "sale_returns"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    sale_id: Mapped[int] = mapped_column(ForeignKey("sales.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    sale: Mapped["Sale"] = relationship()
+    items: Mapped[list["SaleReturnItem"]] = relationship(back_populates="return_receipt", cascade="all, delete-orphan")
+
+
+class SaleReturnItem(Base):
+    """Chi tiết từng dòng trả hàng."""
+    __tablename__ = "sale_return_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    return_id: Mapped[int] = mapped_column(ForeignKey("sale_returns.id"), nullable=False)
+    sale_item_id: Mapped[int] = mapped_column(ForeignKey("sale_items.id"), nullable=False)
+    batch_id: Mapped[int] = mapped_column(ForeignKey("batches.id"), nullable=False)
+    quantity: Mapped[float] = mapped_column(Float, nullable=False)  # Số lượng trả
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
+
+    return_receipt: Mapped["SaleReturn"] = relationship(back_populates="items")
+    product: Mapped["Product"] = relationship()

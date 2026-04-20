@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class StockAdjustmentCreate(BaseModel):
     batch_id: int
-    actual_quantity: int = Field(..., ge=0)
+    actual_quantity: float = Field(..., ge=0)
 
 
 class StockAdjustmentOut(BaseModel):
@@ -13,7 +13,7 @@ class StockAdjustmentOut(BaseModel):
 
     id: int
     batch_id: int
-    system_quantity: int
-    actual_quantity: int
-    difference: int
+    system_quantity: float
+    actual_quantity: float
+    difference: float
     created_at: datetime

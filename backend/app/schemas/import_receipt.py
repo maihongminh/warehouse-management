@@ -26,7 +26,7 @@ class ImportItemOut(BaseModel):
     id: int
     product_id: int
     batch_id: int
-    quantity: int
+    quantity: float
     import_price: Decimal
     product_name: str = ""
 

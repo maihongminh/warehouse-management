@@ -10,6 +10,19 @@ body {
   min-height: 100vh;
 }
 
+button,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+  cursor: pointer;
+}
+
+button:disabled,
+input:disabled {
+  cursor: not-allowed;
+}
+
 /* ── Loading / splash screen ─────────────────────────────── */
 .loading-screen {
   min-height: 100vh;

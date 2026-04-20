@@ -1,4 +1,5 @@
 import { NavLink, Route, Routes } from 'react-router-dom'
+import BackupPage from './pages/BackupPage'
 import Dashboard from './pages/Dashboard'
 import ImportPage from './pages/ImportPage'
 import InvoicesPage from './pages/InvoicesPage'
@@ -17,6 +18,7 @@ const nav = [
   { to: '/stock-take', label: 'Kiểm kho' },
   { to: '/invoices', label: 'Hóa đơn' },
   { to: '/reports', label: 'Báo cáo' },
+  { to: '/backup', label: '⚙ Backup' },
 ]
 
 export default function App() {
@@ -56,6 +58,7 @@ export default function App() {
           <Route path="/stock-take" element={<StockTakePage />} />
           <Route path="/invoices" element={<InvoicesPage />} />
           <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/backup" element={<BackupPage />} />
         </Routes>
       </main>
     </div>

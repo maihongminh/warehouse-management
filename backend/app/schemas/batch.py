@@ -12,5 +12,5 @@ class BatchOut(BaseModel):
     batch_code: str
     expiry_date: date
     import_price: Decimal
-    quantity_remaining: int
+    quantity_remaining: float
     created_at: datetime

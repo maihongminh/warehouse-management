@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import type { FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { apiGet, apiPatch, apiPost, apiUpload } from '../api'
-import type { ImportReceiptListItem, ImportReceiptOut, PaginatedResponse, Product } from '../types'
+import { apiGet, apiPatch, apiPost, apiUpload, apiDelete } from '../api'
+import type { ImportReceiptListItem, ImportReceiptOut, PaginatedResponse, Product, Supplier } from '../types'
 import Pagination from '../components/Pagination'
+import ConfirmDialog from '../components/ConfirmDialog'
+import SupplierQuickAddModal from '../components/SupplierQuickAddModal'
 
 type Line = {
   key: string
@@ -53,9 +55,15 @@ export default function ImportPage() {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [lines, setLines] = useState<Line[]>(() => [newLine()])
   const [isDebt, setIsDebt] = useState(false)
-  const [supplier, setSupplier] = useState('')
+  const [supplierId, setSupplierId] = useState<number | ''>('')
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [showAddSupplier, setShowAddSupplier] = useState(false)
+  const [deletingSupplierId, setDeletingSupplierId] = useState<number | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  // Confirm dialog for submit
+  const [submitConfirm, setSubmitConfirm] = useState(false)
+  const [pendingPayload, setPendingPayload] = useState<object | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [parsingExcel, setParsingExcel] = useState(false)
@@ -115,6 +123,27 @@ export default function ImportPage() {
   // Detail modal
   const [detailReceipt, setDetailReceipt] = useState<ImportReceiptOut | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+
+  // Load suppliers
+  const loadSuppliers = useCallback(() => {
+    apiGet<Supplier[]>('/suppliers').then(setSuppliers).catch(() => setSuppliers([]))
+  }, [])
+
+  useEffect(() => { loadSuppliers() }, [loadSuppliers])
+
+  const handleDeleteSupplier = async () => {
+    if (!deletingSupplierId) return
+    try {
+      await apiDelete(`/suppliers/${deletingSupplierId}`)
+      setSuppliers(prev => prev.filter(s => s.id !== deletingSupplierId))
+      if (supplierId === deletingSupplierId) {
+        setSupplierId('')
+      }
+      setDeletingSupplierId(null)
+    } catch (e: any) {
+      alert(e.message || 'Lỗi khi xóa nhà cung cấp')
+    }
+  }
 
   const applyProductToLine = useCallback((lineKey: string, p: Product) => {
     setLines((L) =>
@@ -191,10 +220,15 @@ export default function ImportPage() {
     e.preventDefault()
     setErr(null)
     setMsg(null)
+    if (!supplierId) {
+      setErr('Vui lòng chọn nhà cung cấp.')
+      return
+    }
+    const selectedSupplier = suppliers.find((s) => s.id === supplierId)
     const payload = {
       date,
       created_by: 'pos',
-      supplier: supplier || null,
+      supplier: selectedSupplier?.name || null,
       is_debt: isDebt,
       lines: lines
         .filter((l) => l.product_id != null && l.expiry_date)
@@ -210,12 +244,20 @@ export default function ImportPage() {
       setErr('Chọn sản phẩm và nhập HSD cho ít nhất một dòng.')
       return
     }
-    apiPost<{ id: number }>('/import-receipts', payload)
+    setPendingPayload(payload)
+    setSubmitConfirm(true)
+  }
+
+  const doSubmit = () => {
+    if (!pendingPayload) return
+    setSubmitConfirm(false)
+    apiPost<{ id: number }>('/import-receipts', pendingPayload)
       .then((r) => {
         setMsg(`✅ Đã tạo phiếu nhập #${r.id}`)
         setLines([newLine()])
         setIsDebt(false)
-        setSupplier('')
+        setSupplierId('')
+        setPendingPayload(null)
         loadHistory(activeFilter)
       })
       .catch((e: Error) => setErr(e.message))
@@ -305,13 +347,40 @@ export default function ImportPage() {
               />
             </label>
             <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-              Nhà cung cấp
-              <input
-                className="rounded border border-zinc-300 px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900"
-                placeholder="Tên nhà cung cấp (tùy chọn)"
-                value={supplier}
-                onChange={(e) => setSupplier(e.target.value)}
-              />
+              <span>Nhà cung cấp <span className="text-red-500">*</span></span>
+              <div className="flex gap-2">
+                <select
+                  className={`flex-1 rounded border px-2 py-1.5 dark:bg-zinc-900 ${
+                    supplierId
+                      ? 'border-zinc-300 dark:border-zinc-600'
+                      : 'border-red-400 dark:border-red-600'
+                  }`}
+                  value={supplierId}
+                  onChange={(e) => setSupplierId(e.target.value ? Number(e.target.value) : '')}
+                >
+                  <option value="">-- Chọn nhà cung cấp --</option>
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}{s.phone ? ` · ${s.phone}` : ''}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setShowAddSupplier(true)}
+                  className="rounded border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 whitespace-nowrap"
+                >
+                  + Thêm NCC
+                </button>
+                {supplierId !== '' && (
+                  <button
+                    type="button"
+                    onClick={() => setDeletingSupplierId(Number(supplierId))}
+                    className="rounded border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300 whitespace-nowrap"
+                    title="Xóa nhà cung cấp này"
+                  >
+                    Xóa
+                  </button>
+                )}
+              </div>
             </label>
             <label className="flex items-center gap-2 text-sm pt-5">
               <input
@@ -539,39 +608,51 @@ export default function ImportPage() {
         </div>
       </section>
 
-      {/* Pay Debt Confirm Modal */}
-      {payTarget && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
-          onClick={() => setPayTarget(null)}
-        >
-          <div
-            className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="mb-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">Khất nợ hoàn tất?</h3>
-            <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-300">
-              Xác nhận đã thanh toán xong cho phiếu nhập <strong>#{payTarget}</strong>? Hành động này không thể hoàn tác.
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                disabled={payLoading}
-                onClick={onPayDebtConfirm}
-                className="flex-1 rounded-lg bg-emerald-600 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
-              >
-                {payLoading ? 'Đang xử lý...' : 'Xác nhận trả nợ'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setPayTarget(null)}
-                className="flex-1 rounded-lg border border-zinc-300 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
-                Hủy
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Submit Import Confirm Dialog */}
+      <ConfirmDialog
+        open={submitConfirm}
+        title="Xác nhận nhập kho"
+        message={
+          pendingPayload
+            ? `Xác nhận ghi nhận phiếu nhập kho với ${(pendingPayload as { lines: unknown[] }).lines.length} sản phẩm?\nHành động này không thể hoàn tác.`
+            : ''
+        }
+        confirmLabel="Ghi nhận nhập kho"
+        onConfirm={doSubmit}
+        onCancel={() => setSubmitConfirm(false)}
+      />
+
+      {/* Pay Debt Confirm Dialog */}
+      <ConfirmDialog
+        open={!!payTarget}
+        title="Xác nhận thanh toán nợ"
+        message={payTarget ? `Xác nhận đã thanh toán xong cho phiếu nhập #${payTarget}?\nHành động này không thể hoàn tác.` : ''}
+        confirmLabel={payLoading ? 'Đang xử lý...' : 'Xác nhận trả nợ'}
+        onConfirm={onPayDebtConfirm}
+        onCancel={() => setPayTarget(null)}
+      />
+
+      {/* Delete Supplier Confirm */}
+      <ConfirmDialog
+        open={deletingSupplierId !== null}
+        title="Xác nhận xóa nhà cung cấp"
+        message="Trường hợp không còn hợp tác, bạn có thể xóa nhà cung cấp này. Lịch sử nhập kho cũ vẫn được giữ nguyên."
+        confirmLabel="Xóa NCC"
+        confirmVariant="danger"
+        onConfirm={handleDeleteSupplier}
+        onCancel={() => setDeletingSupplierId(null)}
+      />
+
+      {/* Supplier quick add modal */}
+      {showAddSupplier && (
+        <SupplierQuickAddModal
+          onCreated={(s) => {
+            setSuppliers((prev) => [...prev, s])
+            setSupplierId(s.id)
+            setShowAddSupplier(false)
+          }}
+          onClose={() => setShowAddSupplier(false)}
+        />
       )}
 
       {/* ─── Detail Modal ───────────────────────────────────────────── */}

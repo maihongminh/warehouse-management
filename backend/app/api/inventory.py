@@ -29,7 +29,7 @@ def inventory_by_product(
     out: list[dict] = []
     for p in products:
         batches = sorted(p.batches, key=lambda b: (b.expiry_date, b.id))
-        total_p = int(sum(b.quantity_remaining for b in batches))
+        total_p = float(sum(b.quantity_remaining for b in batches))
         out.append(
             {
                 "id": p.id,
@@ -63,22 +63,37 @@ def expiring_batches(
 
     today = date.today()
     end = today + timedelta(days=days)
-    
+
     q = (
         db.query(Batch)
+        .options(selectinload(Batch.product))
         .filter(
             Batch.expiry_date <= end,
             Batch.expiry_date >= today,
             Batch.quantity_remaining > 0,
         )
     )
-    
+
     total = q.count()
     total_pages = (total + size - 1) // size
     items = q.order_by(Batch.expiry_date.asc()).offset((page - 1) * size).limit(size).all()
-    
+
+    out = []
+    for b in items:
+        out.append({
+            "id": b.id,
+            "product_id": b.product_id,
+            "product_name": b.product.name if b.product else None,
+            "product_sku": b.product.sku if b.product else None,
+            "batch_code": b.batch_code,
+            "expiry_date": b.expiry_date,
+            "import_price": b.import_price,
+            "quantity_remaining": b.quantity_remaining,
+            "created_at": b.created_at,
+        })
+
     return {
-        "items": items,
+        "items": out,
         "total": total,
         "page": page,
         "size": size,

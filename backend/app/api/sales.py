@@ -1,13 +1,16 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
-from app.models import Sale, SaleItem, SaleStatus
+from app.models import Sale, SaleItem, SaleReturn, SaleReturnItem, SaleStatus
 from app.schemas.sale import SaleCompleteOut, SaleCreate, SaleOut, SaleWithItemsOut
+from app.schemas.sale_return import SaleReturnCreate, SaleReturnOut
 from app.schemas.pagination import PaginatedResponse
 from app.services import sale as sale_svc
+from app.services import sale_return as return_svc
 
 router = APIRouter()
 
@@ -53,17 +56,42 @@ def list_sales(
         q = q.filter(Sale.date >= date_from)
     if date_to is not None:
         q = q.filter(Sale.date <= date_to)
-    
+
     total = q.count()
     total_pages = (total + size - 1) // size
-    items = q.order_by(Sale.id.desc()).offset((page - 1) * size).limit(size).all()
-    
+    sales = q.order_by(Sale.id.desc()).offset((page - 1) * size).limit(size).all()
+
+    # Tính returned_amount cho từng sale trong trang
+    sale_ids = [s.id for s in sales]
+    returned_map: dict[int, float] = {}
+    if sale_ids:
+        rows = (
+            db.query(SaleReturn.sale_id, func.sum(SaleReturnItem.quantity * SaleItem.sale_price))
+            .join(SaleReturnItem, SaleReturnItem.return_id == SaleReturn.id)
+            .join(SaleItem, SaleItem.id == SaleReturnItem.sale_item_id)
+            .filter(SaleReturn.sale_id.in_(sale_ids))
+            .group_by(SaleReturn.sale_id)
+            .all()
+        )
+        returned_map = {sale_id: float(amt or 0) for sale_id, amt in rows}
+
+    items_out = []
+    for s in sales:
+        items_out.append({
+            "id": s.id,
+            "date": s.date,
+            "total_amount": s.total_amount,
+            "returned_amount": returned_map.get(s.id, 0),
+            "status": s.status,
+            "created_by": s.created_by,
+        })
+
     return {
-        "items": items,
+        "items": items_out,
         "total": total,
         "page": page,
         "size": size,
-        "total_pages": total_pages
+        "total_pages": total_pages,
     }
 
 
@@ -108,3 +136,76 @@ def cancel_sale(sale_id: int, db: Session = Depends(get_db)) -> Sale:
         .first()
     )
     return s
+
+
+@router.post("/{sale_id}/return", response_model=SaleReturnOut, status_code=201)
+def return_sale_items(
+    sale_id: int,
+    body: SaleReturnCreate,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Tạo phiếu trả hàng cho hóa đơn đã hoàn tất."""
+    lines = [li.model_dump() for li in body.items]
+    try:
+        result = return_svc.create_sale_return(
+            db,
+            sale_id=sale_id,
+            lines=lines,
+            note=body.note,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    # Build output manually since product name lives in relationship
+    items_out = []
+    for ri in result.items:
+        product_name = ""
+        try:
+            product_name = ri.product.name if ri.product else ""
+        except Exception:
+            pass
+        items_out.append({
+            "id": ri.id,
+            "sale_item_id": ri.sale_item_id,
+            "batch_id": ri.batch_id,
+            "product_id": ri.product_id,
+            "quantity": ri.quantity,
+            "product_name": product_name,
+        })
+    return {
+        "id": result.id,
+        "sale_id": result.sale_id,
+        "note": result.note,
+        "created_at": result.created_at,
+        "items": items_out,
+    }
+
+
+@router.get("/{sale_id}/returns", response_model=list[SaleReturnOut])
+def list_sale_returns(sale_id: int, db: Session = Depends(get_db)) -> list:
+    """Lấy danh sách phiếu trả hàng của một hóa đơn."""
+    returns = return_svc.get_returns_for_sale(db, sale_id)
+    result = []
+    for ret in returns:
+        items_out = []
+        for ri in ret.items:
+            product_name = ""
+            try:
+                product_name = ri.product.name if ri.product else ""
+            except Exception:
+                pass
+            items_out.append({
+                "id": ri.id,
+                "sale_item_id": ri.sale_item_id,
+                "batch_id": ri.batch_id,
+                "product_id": ri.product_id,
+                "quantity": ri.quantity,
+                "product_name": product_name,
+            })
+        result.append({
+            "id": ret.id,
+            "sale_id": ret.sale_id,
+            "note": ret.note,
+            "created_at": ret.created_at,
+            "items": items_out,
+        })
+    return result

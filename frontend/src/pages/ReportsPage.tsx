@@ -128,8 +128,7 @@ export default function ReportsPage() {
           <table className="min-w-full text-left text-sm">
             <thead className="bg-zinc-100 text-xs uppercase text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
               <tr>
-                <th className="px-3 py-2">Lô #</th>
-                <th className="px-3 py-2">SP #</th>
+                <th className="px-3 py-2">Sản phẩm</th>
                 <th className="px-3 py-2">Mã lô</th>
                 <th className="px-3 py-2">HSD</th>
                 <th className="px-3 py-2 text-right">Tồn</th>
@@ -143,16 +142,20 @@ export default function ReportsPage() {
                     key={b.id}
                     className={`border-t border-zinc-200 dark:border-zinc-700 ${days <= 7 ? 'bg-red-50 dark:bg-red-950/20' : 'bg-amber-50 dark:bg-amber-950/10'}`}
                   >
-                    <td className="px-3 py-2 font-mono">{b.id}</td>
-                    <td className="px-3 py-2">{b.product_id}</td>
-                    <td className="px-3 py-2 font-mono">{b.batch_code || '—'}</td>
+                    <td className="px-3 py-2">
+                      <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                        {b.product_name ?? `SP #${b.product_id}`}
+                      </p>
+                      <p className="font-mono text-xs text-zinc-400">{b.product_sku ?? ''}</p>
+                    </td>
+                    <td className="px-3 py-2 font-mono text-sm">{b.batch_code || '—'}</td>
                     <td className="px-3 py-2">
                       {b.expiry_date}
                       <span className={`ml-2 text-xs font-medium ${days <= 7 ? 'text-red-600' : 'text-amber-600'}`}>
                         ({days}d)
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums">{b.quantity_remaining}</td>
+                    <td className="px-3 py-2 text-right tabular-nums font-medium">{b.quantity_remaining}</td>
                   </tr>
                 )
               })}

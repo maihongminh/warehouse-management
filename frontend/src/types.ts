@@ -13,6 +13,8 @@ export type Product = {
 export type Batch = {
   id: number
   product_id: number
+  product_name?: string | null
+  product_sku?: string | null
   batch_code: string
   expiry_date: string
   import_price: string
@@ -43,6 +45,7 @@ export type SaleWithItems = {
   id: number
   date: string
   total_amount: string
+  returned_amount: string
   status: string
   created_by: string
   items: {
@@ -91,4 +94,31 @@ export type PaginatedResponse<T> = {
   page: number
   size: number
   total_pages: number
+}
+
+export type Supplier = {
+  id: number
+  name: string
+  phone: string | null
+  address: string | null
+  note: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export type SaleReturnItem = {
+  id: number
+  sale_item_id: number
+  batch_id: number
+  product_id: number
+  quantity: number
+  product_name: string
+}
+
+export type SaleReturn = {
+  id: number
+  sale_id: number
+  note: string | null
+  created_at: string
+  items: SaleReturnItem[]
 }

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { apiDelete, apiGet, apiGetBlob, apiPost, apiUpload } from '../api'
+import { apiDelete, apiGet, apiGetBlob, apiPost, apiUpload, apiPatch } from '../api'
 import type { PaginatedResponse, Product } from '../types'
 import Pagination from '../components/Pagination'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 type ImportResult = {
   created: number
@@ -37,6 +38,11 @@ export default function Products() {
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
+  // Edit modal
+  const [editTarget, setEditTarget] = useState<Product | null>(null)
+  const [editLoading, setEditLoading] = useState(false)
+  const [editData, setEditData] = useState({ name: '', sku: '', unit: '', default_import_price: '0', default_sale_price: '0', conversion_rate: '1' })
+
   const load = (targetPage: number = page, size: number = pageSize) => {
     const qs = `page=${targetPage}&size=${size}${q ? `&q=${encodeURIComponent(q)}` : ''}`
     apiGet<PaginatedResponse<Product>>(`/products?${qs}`)
@@ -55,28 +61,41 @@ export default function Products() {
     load(1)
   }
 
+  const [createConfirm, setCreateConfirm] = useState(false)
+  const [createLoading, setCreateLoading] = useState(false)
+
   const onCreate = (e: FormEvent) => {
     e.preventDefault()
     setErr(null)
     setOkMsg(null)
-    apiPost<Product>('/products', {
-      name,
-      sku,
-      unit,
-      default_import_price: dip,
-      default_sale_price: dsp,
-      conversion_rate: Number(conversionRate),
-      is_active: true,
-    })
-      .then((created) => {
-        setName('')
-        setSku('')
-        setConversionRate('1')
-        setOkMsg(`Đã tạo «${created.name}» (${created.sku}).`)
-        load()
-        setLastCreatedId(created.id)
+    setCreateConfirm(true)
+  }
+
+  const doCreate = async () => {
+    setCreateLoading(true)
+    try {
+      const created = await apiPost<Product>('/products', {
+        name,
+        sku,
+        unit,
+        default_import_price: dip,
+        default_sale_price: dsp,
+        conversion_rate: Number(conversionRate),
+        is_active: true,
       })
-      .catch((e: Error) => setErr(e.message))
+      setName('')
+      setSku('')
+      setConversionRate('1')
+      setOkMsg(`Đã tạo «${created.name}» (${created.sku}).`)
+      load()
+      setLastCreatedId(created.id)
+      setCreateConfirm(false)
+    } catch (ex: unknown) {
+      setErr(ex instanceof Error ? ex.message : String(ex))
+      setCreateConfirm(false)
+    } finally {
+      setCreateLoading(false)
+    }
   }
 
   const onImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,8 +144,44 @@ export default function Products() {
       load()
     } catch (ex: unknown) {
       setErr(ex instanceof Error ? ex.message : String(ex))
+      setDeleteTarget(null)
     } finally {
       setDeleteLoading(false)
+    }
+  }
+
+  const openEdit = (p: Product) => {
+    setEditTarget(p)
+    setEditData({
+      name: p.name,
+      sku: p.sku,
+      unit: p.unit,
+      default_import_price: String(p.default_import_price),
+      default_sale_price: String(p.default_sale_price),
+      conversion_rate: String(p.conversion_rate),
+    })
+  }
+
+  const doEdit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!editTarget) return
+    setEditLoading(true)
+    try {
+      await apiPatch(`/products/${editTarget.id}`, {
+        name: editData.name,
+        sku: editData.sku,
+        unit: editData.unit,
+        default_import_price: editData.default_import_price,
+        default_sale_price: editData.default_sale_price,
+        conversion_rate: Number(editData.conversion_rate),
+      })
+      setOkMsg(`Đã cập nhật sản phẩm «${editTarget.name}».`)
+      setEditTarget(null)
+      load()
+    } catch (ex: unknown) {
+      setErr(ex instanceof Error ? ex.message : String(ex))
+    } finally {
+      setEditLoading(false)
     }
   }
 
@@ -307,7 +362,7 @@ export default function Products() {
                 <th className="px-3 py-2 text-right">Giá vốn</th>
                 <th className="px-3 py-2 text-right">Giá bán</th>
                 <th className="px-3 py-2 text-right">Tiếp theo</th>
-                <th className="px-3 py-2 text-center">Xóa</th>
+                <th className="px-3 py-2 text-center">Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -330,14 +385,24 @@ export default function Products() {
                     </Link>
                   </td>
                   <td className="px-3 py-2 text-center">
-                    <button
-                      type="button"
-                      onClick={() => setDeleteTarget(p)}
-                      className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/30"
-                      title="Ẩn sản phẩm"
-                    >
-                      🗑 Xóa
-                    </button>
+                    <div className="flex justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(p)}
+                        className="rounded px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950/30 dark:text-blue-400"
+                        title="Sửa sản phẩm"
+                      >
+                        Sửa
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget(p)}
+                        className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/30"
+                        title="Xóa sản phẩm"
+                      >
+                        Xóa
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -360,40 +425,106 @@ export default function Products() {
         </div>
       </div>
 
-      {/* Delete confirm modal */}
-      {deleteTarget && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={() => setDeleteTarget(null)}
-        >
-          <div
-            className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="mb-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">Xác nhận ẩn sản phẩm</h3>
-            <p className="mb-1 text-sm text-zinc-600 dark:text-zinc-300">
-              Bạn có chắc muốn ẩn <strong>{deleteTarget.name}</strong>?
-            </p>
-            <p className="mb-4 text-xs text-zinc-400">
-              Sản phẩm sẽ bị ẩn khỏi danh sách và POS, dữ liệu lịch sử vẫn được giữ nguyên.
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                disabled={deleteLoading}
-                onClick={onDeleteConfirm}
-                className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
-              >
-                {deleteLoading ? 'Đang xử lý...' : 'Xác nhận ẩn'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setDeleteTarget(null)}
-                className="flex-1 rounded-lg border border-zinc-300 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
-                Hủy
-              </button>
-            </div>
+      {/* Delete confirm dialog */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Xác nhận xóa sản phẩm"
+        message={deleteTarget ? `Bạn có chắc muốn xóa «${deleteTarget.name}»?\nSản phẩm sẽ được ẩn khỏi danh sách và POS, nhưng dữ liệu lịch sử vẫn được giữ nguyên.` : ''}
+        confirmLabel={deleteLoading ? 'Đang xử lý...' : 'Xác nhận xóa'}
+        confirmVariant="danger"
+        onConfirm={onDeleteConfirm}
+        onCancel={() => setDeleteTarget(null)}
+      />
+
+      {/* Create confirm dialog */}
+      <ConfirmDialog
+        open={createConfirm}
+        title="Xác nhận thêm sản phẩm"
+        message={`Thêm sản phẩm danh mục:\n- Tên: ${name}\n- SKU: ${sku}\n- Số lượng nhập sẽ thực hiện ở bước Nhập Kho.`}
+        confirmLabel={createLoading ? 'Đang thêm...' : 'Xác nhận thêm'}
+        onConfirm={doCreate}
+        onCancel={() => setCreateConfirm(false)}
+      />
+
+      {/* Edit Modal */}
+      {editTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setEditTarget(null)}>
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-zinc-900" onClick={e => e.stopPropagation()}>
+            <h3 className="mb-4 text-lg font-bold text-zinc-900 dark:text-zinc-100">Chỉnh sửa sản phẩm</h3>
+            <form onSubmit={doEdit} className="space-y-4">
+              <label className="flex flex-col gap-1 text-sm">
+                Tên
+                <input
+                  required
+                  className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800"
+                  value={editData.name}
+                  onChange={e => setEditData({ ...editData, name: e.target.value })}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                SKU
+                <input
+                  required
+                  className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800"
+                  value={editData.sku}
+                  onChange={e => setEditData({ ...editData, sku: e.target.value })}
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-4">
+                <label className="flex flex-col gap-1 text-sm">
+                  Đơn vị
+                  <input
+                    className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800"
+                    value={editData.unit}
+                    onChange={e => setEditData({ ...editData, unit: e.target.value })}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm">
+                  Quy đổi (1 đơn vị = ?)
+                  <input
+                    type="number"
+                    min="1"
+                    className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800"
+                    value={editData.conversion_rate}
+                    onChange={e => setEditData({ ...editData, conversion_rate: e.target.value })}
+                  />
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <label className="flex flex-col gap-1 text-sm">
+                  Giá nhập mặc định
+                  <input
+                    className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800"
+                    value={editData.default_import_price}
+                    onChange={e => setEditData({ ...editData, default_import_price: e.target.value })}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm">
+                  Giá bán mặc định
+                  <input
+                    className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800"
+                    value={editData.default_sale_price}
+                    onChange={e => setEditData({ ...editData, default_sale_price: e.target.value })}
+                  />
+                </label>
+              </div>
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setEditTarget(null)}
+                  className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={editLoading}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {editLoading ? 'Đang lưu...' : 'Lưu thay đổi'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

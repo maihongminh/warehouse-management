@@ -67,7 +67,7 @@ pub fn run() {
       let mut env: HashMap<String, String> = HashMap::new();
       env.insert("WM_DATABASE_URL".into(), db_url);
       env.insert("WM_HOST".into(), "127.0.0.1".into());
-      env.insert("WM_PORT".into(), "8000".into());
+      env.insert("WM_PORT".into(), "8002".into());
 
       // ── Windows Network Isolation fix ────────────────────────────────────
       // WebView2 on some Windows machines cannot connect to localhost by default

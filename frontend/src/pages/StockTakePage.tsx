@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { apiGet, apiPost } from '../api'
 import type { PaginatedResponse, ProductInventory } from '../types'
 import Pagination from '../components/Pagination'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 type FlatRow = {
   productId: number
@@ -24,6 +25,8 @@ export default function StockTakePage() {
   const [draft, setDraft] = useState<Record<number, string>>({})
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  // Confirm cho ghi nhận kiểm kho
+  const [confirmRow, setConfirmRow] = useState<{ batchId: number; productName: string; actual: number } | null>(null)
 
   const load = useCallback((targetPage: number = page, targetSize: number = pageSize) => {
     const qs = `page=${targetPage}&size=${targetSize}${filter ? `&q=${encodeURIComponent(filter)}` : ''}`
@@ -56,7 +59,7 @@ export default function StockTakePage() {
     return out
   }, [paged])
 
-  const applyRow = (batchId: number, e: FormEvent) => {
+  const requestAdjust = (batchId: number, productName: string, e: FormEvent) => {
     e.preventDefault()
     setErr(null)
     setMsg(null)
@@ -66,6 +69,13 @@ export default function StockTakePage() {
       setErr('Số lượng thực tế không hợp lệ.')
       return
     }
+    setConfirmRow({ batchId, productName, actual })
+  }
+
+  const applyAdjust = () => {
+    if (!confirmRow) return
+    const { batchId, actual } = confirmRow
+    setConfirmRow(null)
     apiPost<{ id: number; difference: number }>('/stock/adjust', {
       batch_id: batchId,
       actual_quantity: actual,
@@ -146,7 +156,7 @@ export default function StockTakePage() {
                   />
                 </td>
                 <td className="px-3 py-2">
-                  <form onSubmit={(e) => applyRow(r.batchId, e)}>
+                  <form onSubmit={(e) => requestAdjust(r.batchId, r.productName, e)}>
                     <button
                       type="submit"
                       className="rounded-md bg-emerald-600 px-2 py-1 text-xs text-white hover:bg-emerald-700"
@@ -170,6 +180,20 @@ export default function StockTakePage() {
           />
         )}
       </div>
+
+      {/* Confirm kiểm kho */}
+      <ConfirmDialog
+        open={!!confirmRow}
+        title="Xác nhận điều chỉnh tồn kho"
+        message={
+          confirmRow
+            ? `Sản phẩm: ${confirmRow.productName}\nLô #${confirmRow.batchId}\nSố thực tế: ${confirmRow.actual}\n\nXác nhận ghi nhận vào hệ thống?`
+            : ''
+        }
+        confirmLabel="Ghi nhận"
+        onConfirm={applyAdjust}
+        onCancel={() => setConfirmRow(null)}
+      />
     </div>
   )
 }

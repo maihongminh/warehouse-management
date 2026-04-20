@@ -100,7 +100,7 @@ def complete_sale_fefo(db: Session, sale_id: int, *, sale_date: date | None = No
     for row in allocations:
         sp = Decimal(str(row["sale_price"]))
         qty = row["quantity"]
-        total += sp * qty
+        total += sp * Decimal(str(qty))
         db.add(
             SaleItem(
                 sale_id=sale.id,
