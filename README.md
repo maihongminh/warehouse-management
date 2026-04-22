@@ -36,9 +36,9 @@ Mở `http://127.0.0.1:5173`. hoặc `http://localhost:5173/`
 | Màn hình | Route | Mô tả |
 |----------|-------|-------|
 | Dashboard | `/` | Lối tắt nghiệp vụ nhanh, thống kê hôm nay, tồn thấp & lô sắp hết hạn |
-| POS | `/pos` | Giao diện bán hàng nhanh, quản lý giỏ, lưu phiếu nháp. **Hỗ trợ đơn vị tính (Viên/Hộp)** trong tìm kiếm, tự động quy đổi giá và tồn kho. Giỏ hàng hiển thị rộng hơn. |
+| POS | `/pos` | Giao diện bán hàng nhanh, quản lý giỏ, lưu phiếu nháp. Giỏ hàng hiển thị rộng hơn. |
 | Hóa đơn | `/invoices` | Quản lý hóa đơn với bộ lọc đa tiêu chí. **Hỗ trợ phân trang** và popup chi tiết chống tràn dữ liệu. |
-| Sản phẩm | `/products` | Thao tác Import/Export **EXCEL**, quản lý quy đổi. **Hệ thống phân trang mới** (10-100 dòng/trang). |
+| Sản phẩm | `/products` | Thao tác Import/Export **EXCEL**. **Hệ thống phân trang mới** (10-100 dòng/trang). |
 | Kho | `/inventory` | Bảng tồn kho chi tiết, FEFO, giá vốn. **Hệ thống phân trang mới**. |
 | Nhập kho | `/import` | Tạo phiếu, ghi nợ, nhập từ Excel. **Thêm nhanh NCC/SP**, **Tự động lưu bản nháp** tránh mất dữ liệu. |
 | Kiểm kho | `/stock-take` | Điều chỉnh chênh lệch theo lô. **Hỗ trợ phân trang**. |
