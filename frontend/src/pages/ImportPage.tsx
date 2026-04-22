@@ -5,6 +5,7 @@ import { apiGet, apiPatch, apiPost, apiUpload } from '../api'
 import type { ImportReceiptListItem, ImportReceiptOut, PaginatedResponse, Product, Supplier } from '../types'
 import Pagination from '../components/Pagination'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { fCurrency, fQty } from '../utils/format'
 
 type Line = {
   key: string
@@ -28,9 +29,6 @@ const newLine = (): Line => ({
   expiry_date: '',
 })
 
-function fmt(n: string | number) {
-  return Number(n).toLocaleString('vi-VN')
-}
 
 // ─── History filter state ───────────────────────────────────────────────────
 type HistoryFilter = {
@@ -577,7 +575,7 @@ export default function ImportPage() {
                         <span className="text-xs font-mono text-zinc-500">{p.sku}</span>
                       </div>
                       <div className="mt-0.5 text-xs text-zinc-500">
-                        Giá vốn/Giá bán: {fmt(p.default_import_price || 0)}đ / {fmt(p.default_sale_price || 0)}đ
+                        Giá vốn/Giá bán: {fCurrency(p.default_import_price || 0)}đ / {fCurrency(p.default_sale_price || 0)}đ
                       </div>
                     </button>
                   </li>
@@ -741,9 +739,9 @@ export default function ImportPage() {
                     <td className="px-3 py-2">{r.date}</td>
                     <td className="px-3 py-2 text-zinc-600 dark:text-zinc-400">{r.supplier || '—'}</td>
                     <td className="px-3 py-2 text-zinc-600 dark:text-zinc-400">{r.created_by}</td>
-                    <td className="px-3 py-2 text-center tabular-nums">{r.item_count}</td>
+                    <td className="px-3 py-2 text-center tabular-nums">{fQty(r.item_count)}</td>
                     <td className="px-3 py-2 text-right tabular-nums font-medium">
-                      {fmt(r.total_amount)} ₫
+                      {fCurrency(r.total_amount)}
                     </td>
                     <td className="px-3 py-2 text-center">
                       {r.is_debt ? (
@@ -872,10 +870,10 @@ export default function ImportPage() {
                           <td className="px-3 py-2">
                             <p className="font-medium">{item.product_name || `SP #${item.product_id}`}</p>
                           </td>
-                          <td className="px-3 py-2 text-right tabular-nums">{item.quantity}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{fmt(item.import_price)} ₫</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{fQty(item.quantity)}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{fCurrency(item.import_price)} ₫</td>
                           <td className="px-3 py-2 text-right tabular-nums font-medium">
-                            {fmt(Number(item.import_price) * item.quantity)} ₫
+                            {fCurrency(Number(item.import_price) * item.quantity)} ₫
                           </td>
                         </tr>
                       ))}
@@ -884,7 +882,7 @@ export default function ImportPage() {
                       <tr className="border-t-2 border-zinc-300 bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800">
                         <td colSpan={3} className="px-3 py-2 text-right font-semibold">Tổng cộng</td>
                         <td className="px-3 py-2 text-right tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">
-                          {fmt(detailReceipt.total_amount)} ₫
+                          {fCurrency(detailReceipt.total_amount)} ₫
                         </td>
                       </tr>
                     </tfoot>

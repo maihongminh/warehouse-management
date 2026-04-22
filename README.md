@@ -47,14 +47,14 @@ Mở `http://127.0.0.1:5173`. hoặc `http://localhost:5173/`
 
 ---
 
-## Ghi chú hệ thống v0.2.3
+## Ghi chú hệ thống v0.3.5
 - **Thêm nhanh (Quick Add)**: Cho phép tạo nhanh Nhà cung cấp và Sản phẩm (danh mục) ngay tại màn hình Nhập kho, giúp quy trình làm việc không bị gián đoạn.
 - **Ghi nhớ bản nháp (Draft Persistence)**: Toàn bộ dữ liệu đang nhập kho được tự động lưu vào `localStorage`. Hệ thống sẽ nhắc khôi phục nếu bạn vô tình reload hoặc chuyển trang khi chưa lưu phiếu.
 - **Báo cáo chuẩn xác**: Báo cáo Doanh thu và Lợi nhuận hiện đã khấu trừ chính xác giá trị các mặt hàng khách trả lại (Sales Return) dựa trên ngày thực hiện trả hàng.
 - **Sắp xếp linh hoạt**: Màn hình Sản phẩm hỗ trợ sắp xếp theo nhiều tiêu chí (Tên, SKU, Giá...) trực tiếp từ database.
 - **Xóa trắng dữ liệu (Clear Data)**: Thêm công cụ reset hệ thống tại màn hình Sao lưu, yêu cầu xác nhận bằng cụm từ "Đồng Ý" để đảm bảo an toàn.
 
-## Ghi chú hệ thống v0.2.2
+## Ghi chú hệ thống v0.3.4
 
 ---
 

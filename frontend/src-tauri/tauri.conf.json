@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Warehouse POS",
-  "version": "0.3.4",
+  "productName": "GTA Launcher",
+  "version": "0.3.5",
   "identifier": "vn.local.warehouse.pos",
   "build": {
     "frontendDist": "../dist",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Hiệu thuốc · Kho & POS",
+        "title": "GTA Launcher",
         "width": 1280,
         "height": 800,
         "resizable": true,

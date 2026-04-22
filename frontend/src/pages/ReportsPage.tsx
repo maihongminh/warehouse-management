@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { apiGet } from '../api'
 import type { Batch, PaginatedResponse } from '../types'
 import Pagination from '../components/Pagination'
+import { fCurrency, fQty } from '../utils/format'
 
 type PeriodSummary = {
   date_from: string
@@ -18,10 +19,6 @@ function defaultRange(): { from: string; to: string } {
   const to = t.toISOString().slice(0, 10)
   const from = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-01`
   return { from, to }
-}
-
-function fmt(n: string | number) {
-  return Number(n).toLocaleString('vi-VN')
 }
 
 export default function ReportsPage() {
@@ -107,15 +104,15 @@ export default function ReportsPage() {
         <section className="grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
             <p className="text-sm text-zinc-500">Doanh thu</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums">{fmt(summary.revenue)} ₫</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums">{fCurrency(summary.revenue)} ₫</p>
           </div>
           <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
             <p className="text-sm text-zinc-500">Lợi nhuận (theo snapshot giá nhập)</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums">{fmt(summary.profit)} ₫</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums">{fCurrency(summary.profit)} ₫</p>
           </div>
           <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
             <p className="text-sm text-zinc-500">Số hóa đơn hoàn thành</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums">{summary.completed_sale_count}</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums">{fQty(summary.completed_sale_count)}</p>
           </div>
         </section>
       ) : (

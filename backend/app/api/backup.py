@@ -161,20 +161,24 @@ def restore_backup(body: RestoreRequest) -> dict:
 @router.post("/clear-data")
 def clear_all_data(db: Session = Depends(get_db)) -> dict:
     """Xóa tất cả dữ liệu nghiệp vụ (Sản phẩm, Hóa đơn, Nhập kho,...) nhưng giữ nguyên Schema."""
+    # Thứ tự xóa: Bảng con xóa trước, bảng cha xóa sau để tránh lỗi Foreign Key
     tables = [
-        "batches",
-        "import_items",
-        "import_receipts",
-        "inventory_logs",
-        "sale_items",
         "sale_return_items",
         "sale_returns",
+        "sale_items",
         "sales",
+        "inventory_logs",
         "stock_adjustments",
+        "import_items",
+        "import_receipts",
+        "batches",
         "products",
         "suppliers",
     ]
     try:
+        # Tắt kiểm tra Foreign Key tạm thời để đảm bảo xóa sạch không lỗi
+        db.execute(text("PRAGMA foreign_keys = OFF"))
+        
         # Xóa dữ liệu các bảng
         for table in tables:
             db.execute(text(f"DELETE FROM {table}"))
@@ -186,11 +190,26 @@ def clear_all_data(db: Session = Depends(get_db)) -> dict:
         except Exception:
             pass # Có thể bảng không có AUTOINCREMENT
             
+        # Bật lại Foreign Key
+        db.execute(text("PRAGMA foreign_keys = ON"))
+        
         db.commit()
+        
+        # Thu nhỏ dung lượng file DB sau khi xóa (quan trọng cho máy local)
+        try:
+            db.execute(text("VACUUM"))
+        except Exception:
+            pass
+
         logger.warning("DATABASE WIPED BY USER REQUEST")
         return {"message": "✅ Đã xóa toàn bộ dữ liệu thành công. Hệ thống đã trở về trạng thái trống."}
     except Exception as exc:
         db.rollback()
+        # Đảm bảo bật lại FK nếu lỗi
+        try:
+            db.execute(text("PRAGMA foreign_keys = ON"))
+        except:
+            pass
         logger.error("Error clearing data: %s", exc)
         raise HTTPException(status_code=500, detail=f"Lỗi khi xóa dữ liệu: {exc}") from exc
 

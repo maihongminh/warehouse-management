@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { apiGet, apiPost } from '../api'
 import type { Batch, PaginatedResponse, Product, SaleWithItems } from '../types'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { fCurrency } from '../utils/format'
 
 type CartLine = {
   key: string
@@ -24,10 +25,6 @@ const STATUS_CLASS: Record<SaleStatus, string> = {
   draft: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200',
   completed: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
   cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
-}
-
-function fmt(n: string | number) {
-  return Number(n).toLocaleString('vi-VN')
 }
 
 type PosProduct = Product & { total_quantity: number }
@@ -239,7 +236,7 @@ export default function POS() {
                 <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900">
                   <span className="font-mono text-zinc-500">#{d.id}</span>
                   <span>{d.date}</span>
-                  <span>{fmt(d.total_amount)} ₫</span>
+                  <span>{fCurrency(d.total_amount)} ₫</span>
                   <button
                     type="button"
                     onClick={() => loadDraftSale(d.id)}
@@ -299,7 +296,7 @@ export default function POS() {
                           Còn: {p.total_quantity}
                         </p>
                         <p className="tabular-nums text-xs text-zinc-500 dark:text-zinc-400">
-                          {fmt(p.default_sale_price)} ₫
+                          {fCurrency(p.default_sale_price)} ₫
                         </p>
                       </td>
                       <td className="px-3 py-2 text-center">
@@ -374,7 +371,7 @@ export default function POS() {
           {draftSale && cart.length === 0 && (
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm dark:border-zinc-700 dark:bg-zinc-800">
               <p className="font-medium text-zinc-700 dark:text-zinc-200">Phiếu nháp #{draftSale.id} đã tải</p>
-              <p className="text-xs text-zinc-500 mt-1">Gồm {draftSale.items.length} sản phẩm — Tổng: {fmt(draftSale.total_amount)} ₫</p>
+              <p className="text-xs text-zinc-500 mt-1">Gồm {draftSale.items.length} sản phẩm — Tổng: {fCurrency(draftSale.total_amount)} ₫</p>
               <p className="text-xs text-zinc-400 mt-1">Bấm "Thanh toán" để hoàn thành hoặc "Hủy phiếu" để hủy.</p>
             </div>
           )}
@@ -451,7 +448,7 @@ export default function POS() {
                     <div className="text-right">
                       <p className="mb-0.5 text-xs text-zinc-500">Thành tiền</p>
                       <p className="text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
-                        {fmt(Number(l.sale_price) * l.quantity)} ₫
+                        {fCurrency(Number(l.sale_price) * l.quantity)} ₫
                       </p>
                     </div>
                   </div>
@@ -470,7 +467,7 @@ export default function POS() {
             <div className="flex items-center justify-between rounded-lg bg-zinc-100 px-4 py-3 dark:bg-zinc-800">
               <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">Tổng cộng</span>
               <span className="text-xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
-                {fmt(total || (draftSale ? draftSale.total_amount : 0))} ₫
+                {fCurrency(total || (draftSale ? draftSale.total_amount : 0))} ₫
               </span>
             </div>
           )}
@@ -513,7 +510,7 @@ export default function POS() {
           <ConfirmDialog
             open={checkoutConfirm}
             title="Xác nhận thanh toán"
-            message={`Tổng cộng: ${fmt(total || (draftSale ? draftSale.total_amount : 0))} ₫\nBạn có chắc muốn hoàn tất đơn hàng này?`}
+            message={`Tổng cộng: ${fCurrency(total || (draftSale ? draftSale.total_amount : 0))} ₫\nBạn có chắc muốn hoàn tất đơn hàng này?`}
             confirmLabel="Thanh toán"
             onConfirm={checkout}
             onCancel={() => setCheckoutConfirm(false)}
@@ -540,14 +537,14 @@ export default function POS() {
                   {STATUS_LABEL[resultSale.status as SaleStatus] ?? resultSale.status}
                 </span>
                 <span className="ml-auto font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
-                  {fmt(resultSale.total_amount)} ₫
+                  {fCurrency(resultSale.total_amount)} ₫
                 </span>
               </div>
               <div className="space-y-1">
                 {resultSale.items.map((it) => (
                   <div key={it.id} className="flex justify-between text-xs text-zinc-600 dark:text-zinc-300">
                     <span>{it.product_name || `SP #${it.product_id}`} · SL {it.quantity}</span>
-                    <span>{fmt(Number(it.sale_price) * it.quantity)} ₫</span>
+                    <span>{fCurrency(Number(it.sale_price) * it.quantity)} ₫</span>
                   </div>
                 ))}
               </div>

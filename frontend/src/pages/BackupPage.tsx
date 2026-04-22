@@ -69,6 +69,36 @@ export default function BackupPage() {
   const [wipeErr, setWipeErr] = useState<string | null>(null)
   const [showWipe, setShowWipe] = useState(false)
 
+  // Security Settings states
+  const [oldKey, setOldKey] = useState('')
+  const [newKey, setNewKey] = useState('')
+  const [confirmNewKey, setConfirmNewKey] = useState('')
+  const [keyMsg, setKeyMsg] = useState<string | null>(null)
+
+  const handleUpdateKey = () => {
+    setKeyMsg(null)
+    const currentKey = localStorage.getItem('wm_app_key') || ''
+    
+    if (oldKey !== currentKey) {
+      setKeyMsg('Mã khóa hiện tại không chính xác.')
+      return
+    }
+    if (!newKey) {
+      setKeyMsg('Vui lòng nhập mã khóa mới.')
+      return
+    }
+    if (newKey !== confirmNewKey) {
+      setKeyMsg('Xác nhận mã mới không khớp.')
+      return
+    }
+
+    localStorage.setItem('wm_app_key', newKey)
+    setKeyMsg('✅ Đã cập nhật mã khóa mới.')
+    setOldKey('')
+    setNewKey('')
+    setConfirmNewKey('')
+  }
+
   const loadInfo = useCallback(() => {
     setInfoLoading(true)
     setInfoErr(null)
@@ -356,6 +386,63 @@ export default function BackupPage() {
           className="rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 disabled:opacity-60"
         >
           {scheduleSaveLoading ? 'Đang lưu...' : 'Lưu cài đặt'}
+        </button>
+      </section>
+
+      {/* Security Settings */}
+      <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900 space-y-4">
+        <h2 className="font-medium text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
+          <span>🔑 Cài đặt bảo mật</span>
+        </h2>
+        <p className="text-sm text-zinc-500">
+          Thay đổi mã khóa truy cập ứng dụng. Hãy lưu ý ghi nhớ mã mới sau khi đổi.
+        </p>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <label className="flex flex-col gap-1 text-sm text-zinc-600 dark:text-zinc-400">
+            Mã cũ
+            <input
+              type="password"
+              className="rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+              placeholder="••••"
+              value={oldKey}
+              onChange={(e) => setOldKey(e.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-zinc-600 dark:text-zinc-400">
+            Mã mới
+            <input
+              type="password"
+              className="rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+              placeholder="••••"
+              value={newKey}
+              onChange={(e) => setNewKey(e.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-zinc-600 dark:text-zinc-400">
+            Xác nhận mã mới
+            <input
+              type="password"
+              className="rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+              placeholder="••••"
+              value={confirmNewKey}
+              onChange={(e) => setConfirmNewKey(e.target.value)}
+            />
+          </label>
+        </div>
+
+        {keyMsg && (
+          <p className={`text-sm ${keyMsg.startsWith('✅') ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600'}`}>
+            {keyMsg}
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={handleUpdateKey}
+          className="rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+        >
+          Cập nhật mã khóa
         </button>
       </section>
 

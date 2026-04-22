@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiGet } from '../api'
+import { fCurrency, fQty } from '../utils/format'
 import type { Dashboard as DashboardType } from '../types'
 
 export default function Dashboard() {
@@ -23,10 +24,10 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Doanh thu hôm nay" value={data.revenue_today} suffix="đ" />
-        <Stat label="Lợi nhuận hôm nay" value={data.profit_today} suffix="đ" />
-        <Stat label="SKU tồn thấp (&lt;10)" value={String(data.low_stock_count)} />
-        <Stat label="Lô sắp hết hạn (30 ngày)" value={String(data.expiring_soon_count)} />
+        <Stat label="Doanh thu hôm nay" value={fCurrency(data.revenue_today)} suffix="đ" />
+        <Stat label="Lợi nhuận hôm nay" value={fCurrency(data.profit_today)} suffix="đ" />
+        <Stat label="SKU tồn thấp (<10)" value={fQty(data.low_stock_count)} />
+        <Stat label="Lô sắp hết hạn (30 ngày)" value={fQty(data.expiring_soon_count)} />
       </div>
 
       <section>

@@ -123,6 +123,12 @@ pub fn run() {
         _ => {}
       }
     })
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    .build(tauri::generate_context!())
+    .expect("error while building tauri application")
+    .run(|app_handle, event| match event {
+      tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
+        kill_backend(app_handle);
+      }
+      _ => {}
+    });
 }

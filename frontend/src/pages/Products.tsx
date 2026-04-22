@@ -5,6 +5,7 @@ import { apiDelete, apiGet, apiGetBlob, apiPost, apiUpload, apiPatch } from '../
 import type { PaginatedResponse, Product } from '../types'
 import Pagination from '../components/Pagination'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { fCurrency } from '../utils/format'
 
 type ImportResult = {
   created: number
@@ -392,8 +393,8 @@ export default function Products() {
                   <td className="px-3 py-2 font-mono text-xs text-zinc-500">{p.sku}</td>
                   <td className="px-3 py-2 font-medium">{p.name}</td>
                   <td className="px-3 py-2">{p.unit}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{Number(p.default_import_price).toLocaleString('vi-VN')}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{Number(p.default_sale_price).toLocaleString('vi-VN')}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fCurrency(p.default_import_price)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fCurrency(p.default_sale_price)}</td>
                   <td className="px-3 py-2 text-right">
                     <Link
                       to={`/import?productId=${p.id}`}

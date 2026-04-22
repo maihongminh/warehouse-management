@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { apiGet } from '../api'
 import type { PaginatedResponse, ProductInventory } from '../types'
 import Pagination from '../components/Pagination'
+import { fCurrency, fQty } from '../utils/format'
 
 type SortKey = 'name' | 'sku' | 'total_quantity' | 'default_sale_price' | 'expiry'
 
@@ -12,10 +13,6 @@ function getDaysUntilExpiry(batches: ProductInventory['batches']): number | null
     .map((b) => new Date(b.expiry_date).getTime())
     .sort((a, b) => a - b)[0]
   return Math.ceil((earliest - Date.now()) / 86400000)
-}
-
-function fmt(n: string | number) {
-  return Number(n).toLocaleString('vi-VN')
 }
 
 export default function InventoryPage() {
@@ -167,14 +164,14 @@ export default function InventoryPage() {
                           : 'font-semibold text-emerald-700 dark:text-emerald-400'
                       }
                     >
-                      {fmt(p.total_quantity)}
+                      {fQty(p.total_quantity)}
                     </span>
                   </td>
                   <td className="px-3 py-2.5 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
-                    {fmt(p.default_sale_price)}
+                    {fCurrency(p.default_sale_price)}
                   </td>
                   <td className="px-3 py-2.5 text-right tabular-nums text-zinc-500">
-                    {avgImportPrice > 0 ? fmt(avgImportPrice.toFixed(0)) : '—'}
+                    {avgImportPrice > 0 ? fCurrency(avgImportPrice) : '—'}
                   </td>
                   <td className="px-3 py-2.5 text-right">
                     {earliestBatch ? (
@@ -194,9 +191,9 @@ export default function InventoryPage() {
                         <span
                           key={b.id}
                           className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-mono text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-                          title={`HSD: ${b.expiry_date} | SL: ${b.quantity_remaining} | Giá: ${fmt(b.import_price)}`}
+                          title={`HSD: ${b.expiry_date} | SL: ${fQty(b.quantity_remaining)} | Giá: ${fCurrency(b.import_price)}`}
                         >
-                          {b.batch_code || `#${b.id}`} ({b.quantity_remaining})
+                          {b.batch_code || `#${b.id}`} ({fQty(b.quantity_remaining)})
                         </span>
                       ))}
                       {activeBatches.length > 3 && (

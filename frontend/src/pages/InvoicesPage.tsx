@@ -4,6 +4,7 @@ import { apiGet, apiPost } from '../api'
 import type { PaginatedResponse, SaleReturn, SaleWithItems } from '../types'
 import Pagination from '../components/Pagination'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { fCurrency, fQty } from '../utils/format'
 
 type SaleRow = Pick<SaleWithItems, 'id' | 'date' | 'total_amount' | 'returned_amount' | 'status' | 'created_by'>
 
@@ -12,10 +13,6 @@ function defaultRange() {
   const to = t.toISOString().slice(0, 10)
   const from = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-01`
   return { from, to }
-}
-
-function fmt(n: string | number) {
-  return Number(n).toLocaleString('vi-VN')
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -175,18 +172,18 @@ export default function InvoicesPage() {
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
           <p className="text-sm text-zinc-500">Số hóa đơn (trạng thái lọc)</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums">{paged?.total ?? 0}</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">{fQty(paged?.total ?? 0)}</p>
         </div>
         <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
           <p className="text-sm text-zinc-500">HĐ hoàn thành (trang này)</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
-            {paged?.items.filter((s) => s.status === 'completed').length ?? 0}
+            {fQty(paged?.items.filter((s) => s.status === 'completed').length ?? 0)}
           </p>
         </div>
         <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
           <p className="text-sm text-zinc-500">Doanh thu thực (trang này)</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
-            {fmt(totalRevenue)} ₫
+            {fCurrency(totalRevenue)} ₫
           </p>
         </div>
       </div>
@@ -229,15 +226,15 @@ export default function InvoicesPage() {
                         return (
                           <div className="flex flex-col items-end">
                             <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                              {fmt(gross - ret)} ₫
+                              {fCurrency(gross - ret)} ₫
                             </span>
                             <span className="text-xs text-amber-600 line-through opacity-70">
-                              {fmt(gross)} ₫
+                              {fCurrency(gross)} ₫
                             </span>
                           </div>
                         )
                       }
-                      return <span className="font-medium">{fmt(gross)} ₫</span>
+                      return <span className="font-medium">{fCurrency(gross)} ₫</span>
                     })()}
                   </td>
                   <td className="px-3 py-2.5 text-center">
@@ -312,7 +309,7 @@ export default function InvoicesPage() {
                   </div>
                   <div>
                     <p className="text-zinc-500">Tổng tiền</p>
-                    <p className="font-semibold text-emerald-700 dark:text-emerald-400">{fmt(detail.total_amount)} ₫</p>
+                    <p className="font-semibold text-emerald-700 dark:text-emerald-400">{fCurrency(detail.total_amount)} ₫</p>
                   </div>
                 </div>
 
@@ -364,20 +361,20 @@ export default function InvoicesPage() {
                                 )}
                               </div>
                             </td>
-                            <td className="px-3 py-2 text-right tabular-nums">{item.quantity}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{fQty(item.quantity)}</td>
                             {returnHistory.length > 0 && (
                               <>
                                 <td className="px-3 py-2 text-right tabular-nums text-amber-600 dark:text-amber-400">
-                                  {totalReturned > 0 ? `-${totalReturned}` : '—'}
+                                  {totalReturned > 0 ? `-${fQty(totalReturned)}` : '—'}
                                 </td>
                                 <td className={`px-3 py-2 text-right tabular-nums font-medium ${fullyReturned ? 'text-zinc-400' : ''}`}>
-                                  {remaining}
+                                  {fQty(remaining)}
                                 </td>
                               </>
                             )}
-                            <td className="px-3 py-2 text-right tabular-nums">{fmt(item.sale_price)} ₫</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{fCurrency(item.sale_price)} ₫</td>
                             <td className="px-3 py-2 text-right tabular-nums font-medium">
-                              {fmt(Number(item.sale_price) * item.quantity)} ₫
+                              {fCurrency(Number(item.sale_price) * item.quantity)} ₫
                             </td>
                           </tr>
                         )
@@ -389,7 +386,7 @@ export default function InvoicesPage() {
                           Tổng gốc
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums text-zinc-600 dark:text-zinc-300">
-                          {fmt(detail.total_amount)} ₫
+                          {fCurrency(detail.total_amount)} ₫
                         </td>
                       </tr>
                       {returnHistory.length > 0 && (() => {
@@ -407,13 +404,13 @@ export default function InvoicesPage() {
                                 Đã trả hàng
                               </td>
                               <td className="px-3 py-2 text-right tabular-nums text-amber-700 dark:text-amber-400 font-medium">
-                                -{fmt(totalReturnedAmt)} ₫
+                                -{fCurrency(totalReturnedAmt)} ₫
                               </td>
                             </tr>
                             <tr className="border-t-2 border-zinc-300 bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800">
                               <td colSpan={5} className="px-3 py-2 text-right font-semibold">Thực nhận</td>
                               <td className="px-3 py-2 text-right tabular-nums font-bold text-emerald-700 dark:text-emerald-400">
-                                {fmt(netTotal)} ₫
+                                {fCurrency(netTotal)} ₫
                               </td>
                             </tr>
                           </>
@@ -423,7 +420,7 @@ export default function InvoicesPage() {
                         <tr className="border-t-2 border-zinc-300 bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800">
                           <td colSpan={3} className="px-3 py-2 text-right font-semibold">Tổng cộng</td>
                           <td className="px-3 py-2 text-right tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">
-                            {fmt(detail.total_amount)} ₫
+                            {fCurrency(detail.total_amount)} ₫
                           </td>
                         </tr>
                       )}

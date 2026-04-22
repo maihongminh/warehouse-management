@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { NavLink, Route, Routes } from 'react-router-dom'
 import BackupPage from './pages/BackupPage'
 import Dashboard from './pages/Dashboard'
@@ -9,6 +10,7 @@ import Products from './pages/Products'
 import ReportsPage from './pages/ReportsPage'
 import StockTakePage from './pages/StockTakePage'
 import SuppliersPage from './pages/SuppliersPage'
+import LockScreen from './components/LockScreen'
 
 const nav = [
   { to: '/', label: 'Dashboard' },
@@ -24,11 +26,17 @@ const nav = [
 ]
 
 export default function App() {
+  const [isUnlocked, setIsUnlocked] = useState(false)
+
+  if (!isUnlocked) {
+    return <LockScreen onUnlock={() => setIsUnlocked(true)} />
+  }
+
   return (
-    <div className="min-h-screen bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+    <div className="min-h-screen bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 animate-in fade-in duration-500">
       <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-3">
-          <div className="text-lg font-semibold tracking-tight">Hiệu thuốc · Kho &amp; POS</div>
+          <div className="text-lg font-semibold tracking-tight">GTA Launcher</div>
           <nav className="flex flex-wrap gap-1">
             {nav.map((n) => (
               <NavLink
