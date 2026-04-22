@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 import openpyxl
 
 from app.db.session import get_db
-from app.models import ImportItem, ImportReceipt, Product
+from app.models import ImportItem, ImportReceipt, Product, Supplier
 from app.schemas.import_receipt import (
     ImportReceiptCreate,
     ImportReceiptListItem,
@@ -176,6 +176,8 @@ def parse_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
 
     lines = []
     errors = []
+    supplier_id_result = None
+    supplier_name_result = None
 
     for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
         if not row or row[0] is None:
@@ -208,15 +210,15 @@ def parse_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
             else:
                 imp_price = product.default_import_price if product.default_import_price else 0
 
-            # Batch (col 8 is index 7)
+            # Batch (col 7 is index 6)
             batch = ""
-            if len(row) > 7 and row[7]:
-                batch = str(row[7]).strip()
+            if len(row) > 6 and row[6]:
+                batch = str(row[6]).strip()
 
-            # Expiry (col 9 is index 8)
+            # Expiry (col 8 is index 7)
             expiry_str = ""
-            if len(row) > 8 and row[8]:
-                raw_exp = row[8]
+            if len(row) > 7 and row[7]:
+                raw_exp = row[7]
                 try:
                     # openpyxl reads date cells as datetime objects directly
                     import datetime as dt_module
@@ -233,6 +235,24 @@ def parse_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
                 except Exception:
                     expiry_str = str(raw_exp)
 
+            # Supplier (col 9 is index 8) — optional
+            if len(row) > 8 and row[8]:
+                sup_name = str(row[8]).strip()
+                if sup_name:
+                    existing_sup = db.query(Supplier).filter(
+                        Supplier.name.ilike(sup_name)
+                    ).first()
+                    if existing_sup:
+                        supplier_id_result = existing_sup.id
+                        supplier_name_result = existing_sup.name
+                    else:
+                        new_sup = Supplier(name=sup_name, is_active=True)
+                        db.add(new_sup)
+                        db.flush()
+                        db.commit()
+                        supplier_id_result = new_sup.id
+                        supplier_name_result = new_sup.name
+
             lines.append({
                 "product_id": product.id,
                 "product_summary": f"{product.name} · {product.sku}",
@@ -247,5 +267,7 @@ def parse_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
 
     return {
         "lines": lines,
-        "errors": errors
+        "errors": errors,
+        "supplier_id": supplier_id_result,
+        "supplier_name": supplier_name_result,
     }

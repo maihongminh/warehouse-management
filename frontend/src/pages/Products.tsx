@@ -22,11 +22,13 @@ export default function Products() {
   const [okMsg, setOkMsg] = useState<string | null>(null)
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null)
   const [name, setName] = useState('')
-  const [sku, setSku] = useState('')
+  const [sku] = useState('')
   const [unit, setUnit] = useState('hộp')
   const [dip, setDip] = useState('0')
   const [dsp, setDsp] = useState('0')
-  const [conversionRate, setConversionRate] = useState('1')
+
+  const [sortKey, setSortKey] = useState('name')
+  const [sortAsc, setSortAsc] = useState(true)
 
   // Excel import state
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -41,19 +43,20 @@ export default function Products() {
   // Edit modal
   const [editTarget, setEditTarget] = useState<Product | null>(null)
   const [editLoading, setEditLoading] = useState(false)
-  const [editData, setEditData] = useState({ name: '', sku: '', unit: '', default_import_price: '0', default_sale_price: '0', conversion_rate: '1' })
+  const [editData, setEditData] = useState({ name: '', sku: '', unit: '', default_import_price: '0', default_sale_price: '0' })
 
-  const load = (targetPage: number = page, size: number = pageSize) => {
-    const qs = `page=${targetPage}&size=${size}${q ? `&q=${encodeURIComponent(q)}` : ''}`
+  const load = (targetPage: number = page, size: number = pageSize, sk: string = sortKey, sa: boolean = sortAsc) => {
+    const order = sa ? 'asc' : 'desc'
+    const qs = `page=${targetPage}&size=${size}&sort_by=${sk}&order=${order}${q ? `&q=${encodeURIComponent(q)}` : ''}`
     apiGet<PaginatedResponse<Product>>(`/products?${qs}`)
       .then(setPaged)
       .catch((e: Error) => setErr(e.message))
   }
 
   useEffect(() => {
-    load(page, pageSize)
+    load(page, pageSize, sortKey, sortAsc)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize])
+  }, [page, pageSize, sortKey, sortAsc])
 
   const onSearch = (e: FormEvent) => {
     e.preventDefault()
@@ -80,12 +83,9 @@ export default function Products() {
         unit,
         default_import_price: dip,
         default_sale_price: dsp,
-        conversion_rate: Number(conversionRate),
         is_active: true,
       })
       setName('')
-      setSku('')
-      setConversionRate('1')
       setOkMsg(`Đã tạo «${created.name}» (${created.sku}).`)
       load()
       setLastCreatedId(created.id)
@@ -158,7 +158,6 @@ export default function Products() {
       unit: p.unit,
       default_import_price: String(p.default_import_price),
       default_sale_price: String(p.default_sale_price),
-      conversion_rate: String(p.conversion_rate),
     })
   }
 
@@ -173,7 +172,6 @@ export default function Products() {
         unit: editData.unit,
         default_import_price: editData.default_import_price,
         default_sale_price: editData.default_sale_price,
-        conversion_rate: Number(editData.conversion_rate),
       })
       setOkMsg(`Đã cập nhật sản phẩm «${editTarget.name}».`)
       setEditTarget(null)
@@ -184,6 +182,21 @@ export default function Products() {
       setEditLoading(false)
     }
   }
+  const toggleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortAsc(!sortAsc)
+    } else {
+      setSortKey(key)
+      setSortAsc(true)
+    }
+    setPage(1)
+  }
+
+  const SortIcon = ({ k }: { k: string }) => (
+    <span className="ml-1 inline-block text-zinc-400">
+      {sortKey === k ? (sortAsc ? '▲' : '▼') : '⇅'}
+    </span>
+  )
 
   return (
     <div className="space-y-8">
@@ -279,10 +292,9 @@ export default function Products() {
           <label className="flex flex-col gap-1 text-sm">
             SKU
             <input
-              required
-              className="rounded border border-zinc-300 px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900"
-              value={sku}
-              onChange={(e) => setSku(e.target.value)}
+              disabled
+              placeholder="Tự động tạo (SP001...)"
+              className="rounded border border-zinc-300 px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-800 text-zinc-500 cursor-not-allowed"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
@@ -307,16 +319,6 @@ export default function Products() {
               className="rounded border border-zinc-300 px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900"
               value={dsp}
               onChange={(e) => setDsp(e.target.value)}
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            Quy đổi (1 đơn vị = ? đơn vị nhỏ)
-            <input
-              type="number"
-              min="1"
-              className="rounded border border-zinc-300 px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900"
-              value={conversionRate}
-              onChange={(e) => setConversionRate(e.target.value)}
             />
           </label>
           <div className="flex items-end sm:col-span-2 lg:col-span-3">
@@ -355,12 +357,31 @@ export default function Products() {
           <table className="min-w-full text-left text-sm">
             <thead className="bg-zinc-100 text-xs uppercase text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
               <tr>
-                <th className="px-3 py-2">SKU</th>
-                <th className="px-3 py-2">Tên</th>
+                <th 
+                  className="cursor-pointer px-3 py-2 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                  onClick={() => toggleSort('sku')}
+                >
+                  SKU <SortIcon k="sku" />
+                </th>
+                <th 
+                  className="cursor-pointer px-3 py-2 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                  onClick={() => toggleSort('name')}
+                >
+                  Tên <SortIcon k="name" />
+                </th>
                 <th className="px-3 py-2">ĐVT</th>
-                <th className="px-3 py-2 text-center">Quy đổi</th>
-                <th className="px-3 py-2 text-right">Giá vốn</th>
-                <th className="px-3 py-2 text-right">Giá bán</th>
+                <th 
+                  className="cursor-pointer px-3 py-2 text-right hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                  onClick={() => toggleSort('default_import_price')}
+                >
+                  Giá vốn <SortIcon k="default_import_price" />
+                </th>
+                <th 
+                  className="cursor-pointer px-3 py-2 text-right hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                  onClick={() => toggleSort('default_sale_price')}
+                >
+                  Giá bán <SortIcon k="default_sale_price" />
+                </th>
                 <th className="px-3 py-2 text-right">Tiếp theo</th>
                 <th className="px-3 py-2 text-center">Thao tác</th>
               </tr>
@@ -371,9 +392,6 @@ export default function Products() {
                   <td className="px-3 py-2 font-mono text-xs text-zinc-500">{p.sku}</td>
                   <td className="px-3 py-2 font-medium">{p.name}</td>
                   <td className="px-3 py-2">{p.unit}</td>
-                  <td className="px-3 py-2 text-center">
-                    {p.conversion_rate > 1 ? `1:${p.conversion_rate}` : '—'}
-                  </td>
                   <td className="px-3 py-2 text-right tabular-nums">{Number(p.default_import_price).toLocaleString('vi-VN')}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{Number(p.default_sale_price).toLocaleString('vi-VN')}</td>
                   <td className="px-3 py-2 text-right">
@@ -464,10 +482,9 @@ export default function Products() {
               <label className="flex flex-col gap-1 text-sm">
                 SKU
                 <input
-                  required
-                  className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800"
+                  disabled
+                  className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800 cursor-not-allowed text-zinc-500"
                   value={editData.sku}
-                  onChange={e => setEditData({ ...editData, sku: e.target.value })}
                 />
               </label>
               <div className="grid grid-cols-2 gap-4">
@@ -477,16 +494,6 @@ export default function Products() {
                     className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800"
                     value={editData.unit}
                     onChange={e => setEditData({ ...editData, unit: e.target.value })}
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-sm">
-                  Quy đổi (1 đơn vị = ?)
-                  <input
-                    type="number"
-                    min="1"
-                    className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800"
-                    value={editData.conversion_rate}
-                    onChange={e => setEditData({ ...editData, conversion_rate: e.target.value })}
                   />
                 </label>
               </div>

@@ -109,7 +109,6 @@ export default function InventoryPage() {
                 Tên sản phẩm <SortIcon k="name" />
               </th>
               <th className="px-3 py-3">ĐVT</th>
-              <th className="px-3 py-3">Quy đổi</th>
               <th
                 className="cursor-pointer px-3 py-3 text-right hover:text-zinc-700 dark:hover:text-zinc-200"
                 onClick={() => toggleSort('total_quantity')}
@@ -143,7 +142,7 @@ export default function InventoryPage() {
               const expiryWarning =
                 daysLeft !== null && daysLeft <= 7
                   ? 'bg-red-50 dark:bg-red-950/30'
-                  : daysLeft !== null && daysLeft <= 30
+                  : daysLeft !== null && daysLeft <= 180
                   ? 'bg-amber-50 dark:bg-amber-950/20'
                   : ''
               const earliestBatch = activeBatches.sort(
@@ -158,9 +157,6 @@ export default function InventoryPage() {
                   <td className="px-3 py-2.5 font-mono text-xs text-zinc-500">{p.sku}</td>
                   <td className="px-3 py-2.5 font-medium text-zinc-900 dark:text-zinc-100">{p.name}</td>
                   <td className="px-3 py-2.5 text-zinc-600 dark:text-zinc-400">{p.unit}</td>
-                  <td className="px-3 py-2.5 text-center text-zinc-600 dark:text-zinc-400">
-                    {p.conversion_rate > 1 ? `1:${p.conversion_rate}` : '—'}
-                  </td>
                   <td className="px-3 py-2.5 text-right tabular-nums">
                     <span
                       className={
@@ -182,7 +178,7 @@ export default function InventoryPage() {
                   </td>
                   <td className="px-3 py-2.5 text-right">
                     {earliestBatch ? (
-                      <span className={daysLeft !== null && daysLeft <= 7 ? 'font-semibold text-red-600' : daysLeft !== null && daysLeft <= 30 ? 'text-amber-600' : 'text-zinc-600 dark:text-zinc-400'}>
+                      <span className={daysLeft !== null && daysLeft <= 7 ? 'font-semibold text-red-600' : daysLeft !== null && daysLeft <= 180 ? 'text-amber-600' : 'text-zinc-600 dark:text-zinc-400'}>
                         {earliestBatch.expiry_date}
                         {daysLeft !== null && (
                           <span className="ml-1 text-xs">({daysLeft}d)</span>
@@ -236,7 +232,7 @@ export default function InventoryPage() {
           <span className="inline-block h-3 w-3 rounded bg-red-100 dark:bg-red-950/50" /> HSD ≤ 7 ngày
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded bg-amber-100 dark:bg-amber-950/30" /> HSD ≤ 30 ngày
+          <span className="inline-block h-3 w-3 rounded bg-amber-100 dark:bg-amber-950/30" /> HSD ≤ 180 ngày (6 tháng)
         </span>
         <span className="flex items-center gap-1">
           <span className="font-semibold text-emerald-700">Xanh</span> = còn hàng

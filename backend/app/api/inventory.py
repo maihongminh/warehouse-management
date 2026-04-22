@@ -29,7 +29,7 @@ def inventory_by_product(
     out: list[dict] = []
     for p in products:
         batches = sorted(p.batches, key=lambda b: (b.expiry_date, b.id))
-        total_p = float(sum(b.quantity_remaining for b in batches))
+        total_p = int(sum(b.quantity_remaining for b in batches))
         out.append(
             {
                 "id": p.id,
@@ -38,7 +38,6 @@ def inventory_by_product(
                 "unit": p.unit,
                 "default_import_price": str(p.default_import_price),
                 "default_sale_price": str(p.default_sale_price),
-                "conversion_rate": p.conversion_rate,
                 "total_quantity": total_p,
                 "batches": [InventoryBatchRow.model_validate(b) for b in batches],
             }

@@ -16,9 +16,14 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from app.db.session import get_db
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -151,6 +156,43 @@ def restore_backup(body: RestoreRequest) -> dict:
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Lỗi khi khôi phục: {exc}") from exc
     return {"message": f"✅ Đã khôi phục từ {body.filename}. Vui lòng khởi động lại ứng dụng để áp dụng."}
+
+
+@router.post("/clear-data")
+def clear_all_data(db: Session = Depends(get_db)) -> dict:
+    """Xóa tất cả dữ liệu nghiệp vụ (Sản phẩm, Hóa đơn, Nhập kho,...) nhưng giữ nguyên Schema."""
+    tables = [
+        "batches",
+        "import_items",
+        "import_receipts",
+        "inventory_logs",
+        "sale_items",
+        "sale_return_items",
+        "sale_returns",
+        "sales",
+        "stock_adjustments",
+        "products",
+        "suppliers",
+    ]
+    try:
+        # Xóa dữ liệu các bảng
+        for table in tables:
+            db.execute(text(f"DELETE FROM {table}"))
+        
+        # Reset ID tự tăng trong SQLite
+        try:
+            for table in tables:
+                db.execute(text(f"DELETE FROM sqlite_sequence WHERE name='{table}'"))
+        except Exception:
+            pass # Có thể bảng không có AUTOINCREMENT
+            
+        db.commit()
+        logger.warning("DATABASE WIPED BY USER REQUEST")
+        return {"message": "✅ Đã xóa toàn bộ dữ liệu thành công. Hệ thống đã trở về trạng thái trống."}
+    except Exception as exc:
+        db.rollback()
+        logger.error("Error clearing data: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Lỗi khi xóa dữ liệu: {exc}") from exc
 
 
 @router.get("/schedule", response_model=ScheduleConfig)

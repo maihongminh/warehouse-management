@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class ReturnLineIn(BaseModel):
     sale_item_id: int
-    quantity: float = Field(..., gt=0)
+    quantity: int = Field(..., gt=0)
 
 
 class SaleReturnCreate(BaseModel):
@@ -19,7 +19,7 @@ class SaleReturnItemOut(BaseModel):
     sale_item_id: int
     batch_id: int
     product_id: int
-    quantity: float
+    quantity: int
     product_name: str = ""
 
 

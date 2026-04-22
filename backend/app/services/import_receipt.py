@@ -34,6 +34,18 @@ def create_import_receipt(
 
         batch_code = line.get("batch_code") or ""
         expiry_date = line["expiry_date"]
+        
+        if isinstance(expiry_date, date) and expiry_date < date.today():
+            raise ValueError(f"Sản phẩm {product.name} ({product.sku}) có hạn sử dụng đã qua ({expiry_date})")
+        if isinstance(expiry_date, str) and expiry_date:
+            try:
+                from datetime import datetime
+                parsed_date = datetime.strptime(expiry_date, "%Y-%m-%d").date()
+                if parsed_date < date.today():
+                    raise ValueError(f"Sản phẩm {product.name} ({product.sku}) có hạn sử dụng đã qua ({expiry_date})")
+            except ValueError:
+                pass
+                
         qty = int(line["quantity"])
         import_price = Decimal(str(line["import_price"]))
 

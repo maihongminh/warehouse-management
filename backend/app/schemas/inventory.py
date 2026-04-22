@@ -14,7 +14,7 @@ class InventoryBatchRow(BaseModel):
     batch_code: str
     expiry_date: date
     import_price: Decimal
-    quantity_remaining: float
+    quantity_remaining: int
     created_at: datetime
 
 
@@ -27,6 +27,5 @@ class ProductInventoryOut(BaseModel):
     unit: str
     default_import_price: Decimal
     default_sale_price: Decimal
-    conversion_rate: int
-    total_quantity: float
+    total_quantity: int
     batches: list[InventoryBatchRow]

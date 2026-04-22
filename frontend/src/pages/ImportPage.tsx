@@ -10,8 +10,6 @@ type Line = {
   key: string
   product_id: number | null
   product_summary: string
-  conversion_rate: number
-  is_base_unit: boolean
   pickQuery: string
   quantity: string
   import_price: string
@@ -23,8 +21,6 @@ const newLine = (): Line => ({
   key: Math.random().toString(36).slice(2),
   product_id: null,
   product_summary: '',
-  conversion_rate: 1,
-  is_base_unit: false,
   pickQuery: '',
   quantity: '1',
   import_price: '0',
@@ -64,6 +60,23 @@ export default function ImportPage() {
   const [submitConfirm, setSubmitConfirm] = useState(false)
   const [pendingPayload, setPendingPayload] = useState<object | null>(null)
 
+  // Quick Add Supplier
+  const [showQuickSupplier, setShowQuickSupplier] = useState(false)
+  const [quickName, setQuickName] = useState('')
+  const [quickPhone, setQuickPhone] = useState('')
+  const [quickLoading, setQuickLoading] = useState(false)
+
+  // Draft persistence
+  const [hasDraft, setHasDraft] = useState(false)
+
+  // Quick Add Product
+  const [showQuickProduct, setShowQuickProduct] = useState(false)
+  const [qpName, setQpName] = useState('')
+  const [qpUnit, setQpUnit] = useState('hộp')
+  const [qpDip, setQpDip] = useState('0')
+  const [qpDsp, setQpDsp] = useState('0')
+  const [qpLoading, setQpLoading] = useState(false)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [parsingExcel, setParsingExcel] = useState(false)
 
@@ -76,14 +89,12 @@ export default function ImportPage() {
     const fd = new FormData()
     fd.append('file', file)
     try {
-      const res = await apiUpload<{ lines: any[]; errors: string[] }>('/import-receipts/parse-excel', fd)
+      const res = await apiUpload<{ lines: any[]; errors: string[]; supplier_id: number | null; supplier_name: string | null }>('/import-receipts/parse-excel', fd)
       if (res.lines && res.lines.length > 0) {
         const newLines: Line[] = res.lines.map((row) => ({
           key: crypto.randomUUID(),
           product_id: row.product_id,
           product_summary: row.product_summary,
-          conversion_rate: 1,
-          is_base_unit: false,
           pickQuery: '',
           quantity: row.quantity,
           import_price: row.import_price,
@@ -92,7 +103,12 @@ export default function ImportPage() {
         }))
         setLines(newLines)
       }
-      if (res.errors && res.errors.length > 0) {
+      // Tự động chọn NCC nếu đọc được từ file
+      if (res.supplier_id) {
+        setSupplierId(res.supplier_id)
+        loadSuppliers() // reload để hiển thị NCC mới nếu vừa tạo
+        setMsg(`✅ Nạp thành công ${res.lines.length} dòng. Nhà CC: «${res.supplier_name}» đã được tự động chọn.`)
+      } else if (res.errors && res.errors.length > 0) {
         setErr(`Có ${res.errors.length} lỗi: ` + res.errors.join(' | '))
       } else if (res.lines.length > 0) {
         setMsg(`✅ Nạp thành công ${res.lines.length} dòng từ file.`)
@@ -132,6 +148,57 @@ export default function ImportPage() {
 
   useEffect(() => { loadSuppliers() }, [loadSuppliers])
 
+  // --- Draft Persistence ---
+  const DRAFT_KEY = 'wm_import_draft'
+
+  // Load draft on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(DRAFT_KEY)
+    if (saved) {
+      try {
+        const data = JSON.parse(saved)
+        if (data.lines && data.lines.length > 0 && data.lines[0].product_id) {
+          setHasDraft(true)
+        }
+      } catch (e) {
+        localStorage.removeItem(DRAFT_KEY)
+      }
+    }
+  }, [])
+
+  const restoreDraft = () => {
+    const saved = localStorage.getItem(DRAFT_KEY)
+    if (saved) {
+      try {
+        const data = JSON.parse(saved)
+        setLines(data.lines || [newLine()])
+        setSupplierId(data.supplierId || '')
+        setIsDebt(data.isDebt || false)
+        setDate(data.date || new Date().toISOString().slice(0, 10))
+        setMsg('✅ Đã khôi phục bản nháp.')
+      } catch (e) {}
+    }
+    setHasDraft(false)
+  }
+
+  const discardDraft = () => {
+    localStorage.removeItem(DRAFT_KEY)
+    setHasDraft(false)
+  }
+
+  // Save draft on changes
+  useEffect(() => {
+    const isActuallyNew = lines.length === 1 && !lines[0].product_id && !supplierId
+    if (isActuallyNew) return
+
+    const timer = setTimeout(() => {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        lines, supplierId, isDebt, date
+      }))
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [lines, supplierId, isDebt, date])
+
 
   const [globalQuery, setGlobalQuery] = useState('')
   const [globalSuggestions, setGlobalSuggestions] = useState<Product[]>([])
@@ -157,8 +224,6 @@ export default function ImportPage() {
       const lineData = {
         product_id: p.id,
         product_summary: `${p.name} · ${p.sku}`,
-        conversion_rate: p.conversion_rate || 1,
-        is_base_unit: false,
         pickQuery: '',
         quantity: '1',
         import_price: String(p.default_import_price ?? '0'),
@@ -190,8 +255,6 @@ export default function ImportPage() {
               ...first,
               product_id: p.id,
               product_summary: `${p.name} · ${p.sku}`,
-              conversion_rate: p.conversion_rate || 1,
-              is_base_unit: false,
               pickQuery: '',
               import_price: String(p.default_import_price ?? '0'),
             },
@@ -249,7 +312,7 @@ export default function ImportPage() {
         .filter((l) => l.product_id != null && l.expiry_date)
         .map((l) => ({
           product_id: l.product_id as number,
-          quantity: l.is_base_unit ? Number(l.quantity) / l.conversion_rate : Number(l.quantity),
+          quantity: Number(l.quantity),
           import_price: l.import_price,
           batch_code: l.batch_code,
           expiry_date: l.expiry_date,
@@ -273,9 +336,54 @@ export default function ImportPage() {
         setIsDebt(false)
         setSupplierId('')
         setPendingPayload(null)
+        localStorage.removeItem(DRAFT_KEY) // Clear draft on success
         loadHistory(activeFilter)
       })
       .catch((e: Error) => setErr(e.message))
+  }
+
+  const doQuickAddSupplier = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!quickName.trim()) return
+    setQuickLoading(true)
+    try {
+      const newS = await apiPost<Supplier>('/suppliers', {
+        name: quickName.trim(),
+        phone: quickPhone.trim() || null
+      })
+      setSuppliers(prev => [...prev, newS])
+      setSupplierId(newS.id)
+      setQuickName(''); setQuickPhone('')
+      setShowQuickSupplier(false)
+      setMsg(`✅ Đã thêm và chọn Nhà cung cấp: «${newS.name}»`)
+    } catch (ex: any) {
+      setErr(ex.message)
+    } finally {
+      setQuickLoading(false)
+    }
+  }
+
+  const doQuickAddProduct = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!qpName.trim()) return
+    setQpLoading(true)
+    try {
+      const p = await apiPost<Product>('/products', {
+        name: qpName.trim(),
+        unit: qpUnit.trim(),
+        default_import_price: qpDip,
+        default_sale_price: qpDsp,
+        is_active: true
+      })
+      addProductToImport(p)
+      setQpName(''); setQpUnit('hộp'); setQpDip('0'); setQpDsp('0')
+      setShowQuickProduct(false)
+      setMsg(`✅ Đã thêm và chọn sản phẩm: «${p.name}»`)
+    } catch (ex: any) {
+      setErr(ex.message)
+    } finally {
+      setQpLoading(false)
+    }
   }
 
   const openDetail = (id: number) => {
@@ -330,6 +438,28 @@ export default function ImportPage() {
           </ol>
         </div>
 
+        {hasDraft && (
+          <div className="mb-4 flex items-center justify-between rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+            <div className="flex items-center gap-2">
+              <span>⚠️ Bạn có bản nhập kho chưa hoàn tất từ trước.</span>
+              <button
+                type="button"
+                onClick={restoreDraft}
+                className="font-bold underline hover:text-amber-600"
+              >
+                Khôi phục ngay
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={discardDraft}
+              className="text-xs text-zinc-400 hover:text-zinc-600 underline"
+            >
+              Bỏ qua
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center gap-4 mb-4">
           <input
             type="file"
@@ -377,7 +507,17 @@ export default function ImportPage() {
                   <option key={s.id} value={s.id}>{s.name}{s.phone ? ` · ${s.phone}` : ''}</option>
                 ))}
               </select>
-              <span className="text-xs text-zinc-400">Ẩn quản lý tại <a href="/suppliers" className="text-emerald-600 hover:underline">màn hình Nhà CC</a></span>
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowQuickSupplier(true)}
+                  className="text-xs font-semibold text-emerald-700 hover:underline dark:text-emerald-400"
+                >
+                  + Thêm nhanh NCC
+                </button>
+                <span className="text-zinc-300 dark:text-zinc-700">|</span>
+                <span className="text-xs text-zinc-400">Quản lý tại <a href="/suppliers" className="text-emerald-600 hover:underline">màn hình Nhà CC</a></span>
+              </div>
             </label>
             <label className="flex items-center gap-2 text-sm pt-5">
               <input
@@ -413,6 +553,15 @@ export default function ImportPage() {
                 }}
                 onFocus={() => setGlobalSearchOpen(true)}
               />
+              <div className="mt-1 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setShowQuickProduct(true)}
+                  className="text-xs font-semibold text-emerald-700 hover:underline dark:text-emerald-400"
+                >
+                  + Thêm nhanh Sản phẩm mới (danh mục)
+                </button>
+              </div>
             </label>
             {globalSearchOpen && globalQuery.trim() && globalSuggestions.length > 0 && (
               <ul className="absolute left-0 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-800">
@@ -746,6 +895,107 @@ export default function ImportPage() {
           </div>
         </div>
       )}
+
+      {/* Quick Add Supplier Modal */}
+      <QuickSupplierModal
+        open={showQuickSupplier}
+        loading={quickLoading}
+        name={quickName}
+        setName={setQuickName}
+        phone={quickPhone}
+        setPhone={setQuickPhone}
+        onClose={() => setShowQuickSupplier(false)}
+        onSubmit={doQuickAddSupplier}
+      />
+
+      <QuickProductModal
+        open={showQuickProduct}
+        loading={qpLoading}
+        name={qpName} setName={setQpName}
+        unit={qpUnit} setUnit={setQpUnit}
+        dip={qpDip} setDip={setQpDip}
+        dsp={qpDsp} setDsp={setQpDsp}
+        onClose={() => setShowQuickProduct(false)}
+        onSubmit={doQuickAddProduct}
+      />
+    </div>
+  )
+}
+
+// ─── Quick Add Product Modal ──────────────────────────────────────────────────
+function QuickProductModal({
+  open, loading,
+  name, setName,
+  unit, setUnit,
+  dip, setDip,
+  dsp, setDsp,
+  onClose, onSubmit
+}: any) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-zinc-900" onClick={e => e.stopPropagation()}>
+        <h3 className="mb-4 text-lg font-bold text-zinc-900 dark:text-zinc-100">Thêm nhanh Sản phẩm</h3>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Tên sản phẩm *
+            <input
+              required autoFocus
+              className="rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800"
+              value={name} onChange={e => setName(e.target.value)}
+              placeholder="VD: Thuốc cảm cúm..."
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-4">
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Đơn vị (vỉ, hộp,...)
+              <input
+                className="rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800"
+                value={unit} onChange={e => setUnit(e.target.value)}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium text-zinc-400">
+              Mã SKU
+              <input disabled placeholder="Tự động" className="rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800" />
+            </label>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Giá nhập mặc định
+              <input
+                type="number"
+                className="rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800"
+                value={dip} onChange={e => setDip(e.target.value)}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Giá bán mặc định
+              <input
+                type="number"
+                className="rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800"
+                value={dsp} onChange={e => setDsp(e.target.value)}
+              />
+            </label>
+          </div>
+          <p className="text-xs text-zinc-500 italic">* Lưu ý: SKU sẽ được hệ thống tự động tạo (SPxxxx).</p>
+          <div className="mt-6 flex gap-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 rounded-lg bg-emerald-600 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {loading ? 'Đang lưu...' : 'Lưu & Chọn'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-zinc-300 px-4 py-3 text-sm font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400"
+            >
+              Hủy
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
@@ -788,23 +1038,16 @@ function ImportLineRow({
           Số lượng
           <div className="flex">
             <input
-              className={`min-w-0 flex-1 rounded-l border border-zinc-300 px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900 ${line.conversion_rate > 1 ? '' : 'rounded-r'}`}
+              type="number"
+              min="1"
+              step="1"
+              className="min-w-0 flex-1 rounded border border-zinc-300 px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900"
               value={line.quantity}
               onChange={(e) => {
                 const v = e.target.value
                 setLines((L) => L.map((x) => (x.key === line.key ? { ...x, quantity: v } : x)))
               }}
             />
-            {line.conversion_rate > 1 && (
-              <button
-                type="button"
-                onClick={() => setLines((L) => L.map((x) => x.key === line.key ? { ...x, is_base_unit: !x.is_base_unit } : x))}
-                className={`rounded-r border-y border-r border-zinc-300 px-2 py-1.5 font-medium transition-colors dark:border-zinc-600 ${line.is_base_unit ? 'bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-200' : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-200'}`}
-                title={line.is_base_unit ? `Đang nhập theo lẻ. Tỉ lệ: 1:${line.conversion_rate}` : `Đang nhập theo hộp. Tỉ lệ: 1:${line.conversion_rate}`}
-              >
-                {line.is_base_unit ? 'Lẻ' : 'Hộp'}
-              </button>
-            )}
           </div>
         </label>
         <label className="flex flex-col gap-1 text-xs">
@@ -833,6 +1076,7 @@ function ImportLineRow({
           HSD
           <input
             type="date"
+            min={new Date().toISOString().split('T')[0]}
             className="rounded border border-zinc-300 px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900"
             value={line.expiry_date}
             onChange={(e) => {
@@ -841,6 +1085,63 @@ function ImportLineRow({
             }}
           />
         </label>
+      </div>
+    </div>
+  )
+}
+
+// ─── Quick Add Supplier Modal ────────────────────────────────────────────────
+function QuickSupplierModal({
+  open,
+  loading,
+  name, setName,
+  phone, setPhone,
+  onClose,
+  onSubmit
+}: any) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-zinc-900" onClick={e => e.stopPropagation()}>
+        <h3 className="mb-4 text-lg font-bold text-zinc-900 dark:text-zinc-100">Thêm nhanh Nhà CC</h3>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Tên nhà cung cấp *
+            <input
+              required
+              autoFocus
+              className="rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="VD: Công ty Dược ABC"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Số điện thoại
+            <input
+              className="rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              placeholder="0912..."
+            />
+          </label>
+          <div className="mt-6 flex gap-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 rounded-lg bg-emerald-600 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {loading ? 'Đang lưu...' : 'Lưu & Chọn'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400"
+            >
+              Hủy
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   )

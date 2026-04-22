@@ -5,7 +5,6 @@ export type Product = {
   unit: string
   default_import_price: string
   default_sale_price: string
-  conversion_rate: number
   is_active: boolean
   created_at: string
 }
@@ -29,7 +28,6 @@ export type ProductInventory = {
   unit: string
   default_import_price: string
   default_sale_price: string
-  conversion_rate: number
   total_quantity: number
   batches: Batch[]
 }

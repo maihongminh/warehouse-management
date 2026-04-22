@@ -40,17 +40,21 @@ Mở `http://127.0.0.1:5173`. hoặc `http://localhost:5173/`
 | Hóa đơn | `/invoices` | Quản lý hóa đơn với bộ lọc đa tiêu chí. **Hỗ trợ phân trang** và popup chi tiết chống tràn dữ liệu. |
 | Sản phẩm | `/products` | Thao tác Import/Export **EXCEL**, quản lý quy đổi. **Hệ thống phân trang mới** (10-100 dòng/trang). |
 | Kho | `/inventory` | Bảng tồn kho chi tiết, FEFO, giá vốn. **Hệ thống phân trang mới**. |
-| Nhập kho | `/import` | Tạo phiếu, ghi nợ, nhập từ Excel. **Popup chi tiết hỗ trợ cuộn dọc** cho danh sách dài. |
+| Nhập kho | `/import` | Tạo phiếu, ghi nợ, nhập từ Excel. **Thêm nhanh NCC/SP**, **Tự động lưu bản nháp** tránh mất dữ liệu. |
 | Kiểm kho | `/stock-take` | Điều chỉnh chênh lệch theo lô. **Hỗ trợ phân trang**. |
-| Báo cáo | `/reports` | Doanh thu, lợi nhuận, lô hết hạn. **Phân trang danh sách lô sắp hết hạn**. |
+| Báo cáo | `/reports` | Doanh thu, lợi nhuận, lô hết hạn. **Doanh thu đã khấu trừ hàng trả lại**. |
+| Sao lưu | `/backup` | Sao lưu/Khôi phục DB. **Chức năng Xóa dữ liệu nhanh** với xác nhận "Đồng Ý". |
 
 ---
 
+## Ghi chú hệ thống v0.2.3
+- **Thêm nhanh (Quick Add)**: Cho phép tạo nhanh Nhà cung cấp và Sản phẩm (danh mục) ngay tại màn hình Nhập kho, giúp quy trình làm việc không bị gián đoạn.
+- **Ghi nhớ bản nháp (Draft Persistence)**: Toàn bộ dữ liệu đang nhập kho được tự động lưu vào `localStorage`. Hệ thống sẽ nhắc khôi phục nếu bạn vô tình reload hoặc chuyển trang khi chưa lưu phiếu.
+- **Báo cáo chuẩn xác**: Báo cáo Doanh thu và Lợi nhuận hiện đã khấu trừ chính xác giá trị các mặt hàng khách trả lại (Sales Return) dựa trên ngày thực hiện trả hàng.
+- **Sắp xếp linh hoạt**: Màn hình Sản phẩm hỗ trợ sắp xếp theo nhiều tiêu chí (Tên, SKU, Giá...) trực tiếp từ database.
+- **Xóa trắng dữ liệu (Clear Data)**: Thêm công cụ reset hệ thống tại màn hình Sao lưu, yêu cầu xác nhận bằng cụm từ "Đồng Ý" để đảm bảo an toàn.
+
 ## Ghi chú hệ thống v0.2.2
-- **Phân trang Hệ thống (Server-side Pagination)**: Tất cả các bảng danh sách lớn (Sản phẩm, Kho, Nhập kho, Hóa đơn...) hiện đã được phân trang từ phía server để đảm bảo hiệu năng. Cho phép chọn hiển thị **10, 20, 50 hoặc 100 dòng**.
-- **Cải tiến POS**: Hiển thị đơn vị tính (Viên/Hộp/...) ngay trong danh sách tìm kiếm sản phẩm. Tăng chiều cao vùng hiển thị giỏ hàng lên 500px.
-- **Fix UI Detail Modal**: Các cửa sổ xem chi tiết (Hóa đơn, Phiếu nhập) hiện đã hỗ trợ cuộn dọc và giới hạn chiều cao, không còn bị tràn khỏi màn hình khi có quá nhiều sản phẩm.
-- **Excel Thông minh**: Nhập kho Excel hỗ trợ xử lý số lượng lẻ (làm tròn), đọc định dạng Date của Excel. Xuất sản phẩm kèm theo mã Lô/HSD của lô gần hết hạn nhất.
 
 ---
 

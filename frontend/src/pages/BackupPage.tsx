@@ -62,6 +62,12 @@ export default function BackupPage() {
   const [scheduleLoading, setScheduleLoading] = useState(false)
   const [scheduleSaveLoading, setScheduleSaveLoading] = useState(false)
   const [scheduleMsg, setScheduleMsg] = useState<string | null>(null)
+  
+  const [wipeConfirm, setWipeConfirm] = useState('')
+  const [wipeLoading, setWipeLoading] = useState(false)
+  const [wipeMsg, setWipeMsg] = useState<string | null>(null)
+  const [wipeErr, setWipeErr] = useState<string | null>(null)
+  const [showWipe, setShowWipe] = useState(false)
 
   const loadInfo = useCallback(() => {
     setInfoLoading(true)
@@ -125,6 +131,27 @@ export default function BackupPage() {
       setScheduleMsg(e instanceof Error ? e.message : String(e))
     } finally {
       setScheduleSaveLoading(false)
+    }
+  }
+
+  const doClearData = async () => {
+    if (wipeConfirm.trim().toLowerCase() !== 'đồng ý') {
+      setWipeErr('Vui lòng nhập chính xác cụm từ "Đồng Ý"')
+      return
+    }
+    setWipeMsg(null)
+    setWipeErr(null)
+    setWipeLoading(true)
+    try {
+      const res = await apiPost<{ message: string }>('/backup/clear-data', {})
+      setWipeMsg(res.message)
+      setWipeConfirm('')
+      setShowWipe(false)
+      loadInfo()
+    } catch (e: unknown) {
+      setWipeErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setWipeLoading(false)
     }
   }
 
@@ -330,6 +357,70 @@ export default function BackupPage() {
         >
           {scheduleSaveLoading ? 'Đang lưu...' : 'Lưu cài đặt'}
         </button>
+      </section>
+
+      {/* Dangerous Area */}
+      <section className="rounded-xl border border-red-200 bg-red-50/40 p-5 dark:border-red-900/50 dark:bg-red-950/10 space-y-4">
+        <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+          <span className="text-xl">⚠️</span>
+          <h2 className="font-bold">Khu vực nguy hiểm</h2>
+        </div>
+        
+        {!showWipe ? (
+          <div className="space-y-3">
+            <p className="text-sm text-red-800 dark:text-red-300">
+              Xóa toàn bộ dữ liệu nghiệp vụ: Sản phẩm, Nhà cung cấp, Hóa đơn và Kho hàng. 
+              <strong> Hành động này không thể hoàn tác.</strong>
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowWipe(true)}
+              className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:border-red-800 dark:bg-zinc-900 dark:text-red-400 dark:hover:bg-red-950/20"
+            >
+              Xóa tất cả dữ liệu
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4 rounded-lg bg-white p-4 shadow-sm dark:bg-zinc-900">
+            <p className="text-sm text-zinc-700 dark:text-zinc-300">
+              Để xác nhận xóa toàn bộ dữ liệu, vui lòng nhập cụm từ <span className="font-bold text-red-600">Đồng Ý</span> vào ô bên dưới:
+            </p>
+            
+            <input
+              autoFocus
+              className="w-full rounded-lg border border-red-300 px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 dark:border-red-800 dark:bg-zinc-800"
+              placeholder="Nhập 'Đồng Ý'..."
+              value={wipeConfirm}
+              onChange={(e) => setWipeConfirm(e.target.value)}
+            />
+            
+            {wipeErr && <p className="text-xs text-red-600">{wipeErr}</p>}
+            
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={wipeLoading || wipeConfirm.trim().toLowerCase() !== 'đồng ý'}
+                onClick={doClearData}
+                className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {wipeLoading ? 'Đang thực hiện...' : 'XÁC NHẬN XÓA SẠCH'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowWipe(false); setWipeConfirm(''); setWipeErr(null); }}
+                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400"
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        )}
+
+        {wipeMsg && (
+          <p className="rounded-lg bg-emerald-100 p-3 text-sm font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+            {wipeMsg}
+          </p>
+        )}
       </section>
     </div>
   )

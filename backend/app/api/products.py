@@ -3,10 +3,10 @@ from io import BytesIO
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.db.session import get_db
-from app.models import Batch, Product
-from app.schemas.batch import BatchOut
+from app.models import Batch, ImportReceipt, ImportItem, Product, Supplier
 from app.schemas.batch import BatchOut
 from app.schemas.product import ProductCreate, ProductOut, ProductUpdate
 from app.schemas.pagination import PaginatedResponse
@@ -21,6 +21,8 @@ def list_products(
     q: str | None = Query(None, description="Search name or sku"),
     page: int = Query(1, ge=1),
     size: int = Query(50, ge=1, le=100),
+    sort_by: str = Query("name", description="Field to sort by (name, sku, default_import_price, default_sale_price)"),
+    order: str = Query("asc", description="Sort order (asc, desc)"),
 ) -> dict:
     stmt = db.query(Product)
     if active_only:
@@ -29,10 +31,17 @@ def list_products(
         like = f"%{q}%"
         stmt = stmt.filter((Product.name.ilike(like)) | (Product.sku.ilike(like)))
     
+    # Sorting logic
+    col = getattr(Product, sort_by, Product.name)
+    if order == "desc":
+        stmt = stmt.order_by(col.desc())
+    else:
+        stmt = stmt.order_by(col.asc())
+    
     total = stmt.count()
     total_pages = (total + size - 1) // size
     
-    items = stmt.order_by(Product.name.asc()).offset((page - 1) * size).limit(size).all()
+    items = stmt.offset((page - 1) * size).limit(size).all()
     
     return {
         "items": items,
@@ -43,18 +52,37 @@ def list_products(
     }
 
 
+def generate_next_sku(db: Session) -> str:
+    # Lấy sku có mã số lớn nhất bắt đầu bằng "SP"
+    result = db.query(Product.sku).filter(Product.sku.like("SP%")).all()
+    max_num = 0
+    for row in result:
+        sku = row[0]
+        try:
+            num = int(sku[2:])
+            if num > max_num:
+                max_num = num
+        except ValueError:
+            pass
+    
+    next_num = max_num + 1
+    return f"SP{next_num:04d}"
+
+
 @router.post("", response_model=ProductOut, status_code=201)
 def create_product(body: ProductCreate, db: Session = Depends(get_db)) -> Product:
-    exists = db.query(Product).filter(Product.sku == body.sku).first()
+    sku = body.sku if body.sku else generate_next_sku(db)
+    
+    exists = db.query(Product).filter(Product.sku == sku).first()
     if exists:
         raise HTTPException(status_code=400, detail="Mã SKU đã tồn tại")
+        
     p = Product(
         name=body.name,
-        sku=body.sku,
+        sku=sku,
         unit=body.unit,
         default_import_price=body.default_import_price,
         default_sale_price=body.default_sale_price,
-        conversion_rate=body.conversion_rate,
         is_active=body.is_active,
     )
     db.add(p)
@@ -75,7 +103,7 @@ def export_products_excel(db: Session = Depends(get_db)):
     ws = wb.active
     ws.title = "DanhSachSanPham"
 
-    headers = ["Mã hàng", "Tên hàng", "Giá bán", "Giá vốn", "Tồn kho", "ĐVT", "Quy đổi", "Lô 1", "Hạn sử dụng 1"]
+    headers = ["Mã hàng", "Tên hàng", "Giá bán", "Giá vốn", "Tồn kho", "ĐVT", "Lô 1", "Hạn sử dụng 1", "Nhà cung cấp"]
     header_fill = PatternFill(start_color="1E8449", end_color="1E8449", fill_type="solid")
     header_font = Font(bold=True, color="FFFFFF")
 
@@ -103,15 +131,31 @@ def export_products_excel(db: Session = Depends(get_db)):
         ws.cell(row=row_idx, column=4, value=float(p.default_import_price))
         ws.cell(row=row_idx, column=5, value=total_qty)
         ws.cell(row=row_idx, column=6, value=p.unit)
-        ws.cell(row=row_idx, column=7, value=p.conversion_rate)
-        ws.cell(row=row_idx, column=8, value=batch_code)
+        ws.cell(row=row_idx, column=7, value=batch_code)
+        
         # Ghi ngày dạng date object để Excel tự nhận biết định dạng ngày
         if expiry_date:
             from datetime import date
-            cell_exp = ws.cell(row=row_idx, column=9, value=expiry_date)
+            cell_exp = ws.cell(row=row_idx, column=8, value=expiry_date)
             cell_exp.number_format = "DD/MM/YYYY"
         else:
-            ws.cell(row=row_idx, column=9, value="")
+            ws.cell(row=row_idx, column=8, value="")
+        
+        # NCC gần nhất của sản phẩm (lấy từ phiếu nhập gần nhất)
+        from sqlalchemy import desc
+        last_item = (
+            db.query(ImportItem)
+            .join(ImportReceipt, ImportItem.receipt_id == ImportReceipt.id)
+            .filter(ImportItem.product_id == p.id)
+            .order_by(desc(ImportReceipt.id))
+            .first()
+        )
+        supplier_name = ""
+        if last_item:
+            receipt = db.query(ImportReceipt).filter(ImportReceipt.id == last_item.receipt_id).first()
+            if receipt and receipt.supplier:
+                supplier_name = receipt.supplier
+        ws.cell(row=row_idx, column=9, value=supplier_name)
 
     for col in ws.columns:
         max_len = max((len(str(cell.value or "")) for cell in col), default=10)
@@ -151,42 +195,62 @@ def import_products_excel(
     updated = 0
     errors: list[str] = []
 
+    session_cache = {"max_sku": None}
+
+    def _get_next_excel_sku() -> str:
+        if session_cache["max_sku"] is None:
+            res = db.query(Product.sku).filter(Product.sku.like("SP%")).all()
+            m = 0
+            for r in res:
+                try:
+                    num = int(r[0][2:])
+                    if num > m:
+                        m = num
+                except ValueError:
+                    pass
+            session_cache["max_sku"] = m
+        session_cache["max_sku"] += 1
+        return f"SP{session_cache['max_sku']:04d}"
+
     for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
-        # Cột: Mã hàng | Tên hàng | Giá bán | Giá vốn | Tồn kho | ĐVT | Quy đổi
-        if not row or row[0] is None:
+        if not row:
             continue
         try:
-            sku = str(row[0]).strip()
-            name = str(row[1]).strip() if row[1] else ""
-            sale_price = float(row[2] or 0)
-            import_price = float(row[3] or 0)
-            unit = str(row[5]).strip() if row[5] else "unit"
-            conversion_rate = int(row[6] or 1)
+            sku = str(row[0]).strip() if row[0] is not None else ""
+            name = str(row[1]).strip() if len(row) > 1 and row[1] else ""
+            sale_price = float(row[2]) if len(row) > 2 and row[2] else 0.0
+            import_price = float(row[3]) if len(row) > 3 and row[3] else 0.0
+            unit = str(row[5]).strip() if len(row) > 5 and row[5] else "unit"
 
-            if not sku or not name:
-                errors.append(f"Dòng {row_idx}: SKU hoặc tên trống, bỏ qua.")
+            if not name:
+                errors.append(f"Dòng {row_idx}: Tên sản phẩm trống, bỏ qua.")
                 continue
 
-            existing = db.query(Product).filter(Product.sku == sku).first()
+            existing = None
+            if sku:
+                existing = db.query(Product).filter(Product.sku == sku).first()
+            else:
+                existing = db.query(Product).filter(Product.name == name).first()
+
             if existing:
                 existing.name = name
                 existing.default_sale_price = sale_price
                 existing.default_import_price = import_price
                 existing.unit = unit
-                existing.conversion_rate = conversion_rate
                 existing.is_active = True
                 updated += 1
             else:
+                new_sku = sku if sku else _get_next_excel_sku()
                 p = Product(
-                    sku=sku,
+                    sku=new_sku,
                     name=name,
                     default_sale_price=sale_price,
                     default_import_price=import_price,
                     unit=unit,
-                    conversion_rate=conversion_rate,
                     is_active=True,
                 )
                 db.add(p)
+                db.flush()
                 created += 1
         except Exception as e:
             errors.append(f"Dòng {row_idx}: {e}")

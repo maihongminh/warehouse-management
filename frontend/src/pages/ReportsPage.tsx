@@ -43,7 +43,7 @@ export default function ReportsPage() {
   }, [from, to])
 
   const loadExpiring = useCallback((p: number = expiringPage, s: number = expiringPageSize) => {
-    apiGet<PaginatedResponse<Batch>>(`/inventory/batches/expiring?days=30&page=${p}&size=${s}`)
+    apiGet<PaginatedResponse<Batch>>(`/inventory/batches/expiring?days=180&page=${p}&size=${s}`)
       .then(setExpiringPaged)
       .catch((e: Error) => setErr(e.message))
   }, [expiringPage, expiringPageSize])
@@ -123,7 +123,7 @@ export default function ReportsPage() {
       )}
 
       <section>
-        <h2 className="mb-2 text-lg font-medium">Lô sắp hết hạn (30 ngày, còn tồn)</h2>
+        <h2 className="mb-2 text-lg font-medium">Lô sắp hết hạn (180 ngày, còn tồn)</h2>
         <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-zinc-100 text-xs uppercase text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
@@ -162,7 +162,7 @@ export default function ReportsPage() {
             </tbody>
           </table>
           {expiringPaged && expiringPaged.items.length === 0 && summary ? (
-            <p className="p-4 text-zinc-500">Không có lô trong cửa sổ 30 ngày.</p>
+            <p className="p-4 text-zinc-500">Không có lô trong cửa sổ 180 ngày.</p>
           ) : null}
           {expiringPaged && (
             <Pagination 

@@ -4,7 +4,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import Batch, Sale, SaleItem, SaleStatus
+from app.models import Batch, Sale, SaleItem, SaleStatus, SaleReturn, SaleReturnItem
 
 
 def dashboard(db: Session, *, today: date | None = None) -> dict:
@@ -16,6 +16,16 @@ def dashboard(db: Session, *, today: date | None = None) -> dict:
         .scalar()
     )
     revenue = Decimal(str(revenue or 0))
+
+    # Trừ doanh thu trả hàng (Option 2: tính vào ngày trả hàng)
+    returned_revenue = (
+        db.query(func.coalesce(func.sum(SaleReturnItem.quantity * SaleItem.sale_price), 0))
+        .join(SaleReturn, SaleReturnItem.return_id == SaleReturn.id)
+        .join(SaleItem, SaleReturnItem.sale_item_id == SaleItem.id)
+        .filter(func.date(SaleReturn.created_at) == d)
+        .scalar()
+    )
+    revenue -= Decimal(str(returned_revenue or 0))
 
     profit_row = (
         db.query(
@@ -31,6 +41,23 @@ def dashboard(db: Session, *, today: date | None = None) -> dict:
         .scalar()
     )
     profit = Decimal(str(profit_row or 0))
+
+    # Trừ lợi nhuận bị mất do trả hàng
+    returned_profit = (
+        db.query(
+            func.coalesce(
+                func.sum(
+                    (SaleItem.sale_price - SaleItem.import_price_snapshot) * SaleReturnItem.quantity
+                ),
+                0,
+            )
+        )
+        .join(SaleReturn, SaleReturnItem.return_id == SaleReturn.id)
+        .join(SaleItem, SaleReturnItem.sale_item_id == SaleItem.id)
+        .filter(func.date(SaleReturn.created_at) == d)
+        .scalar()
+    )
+    profit -= Decimal(str(returned_profit or 0))
 
     low_threshold = 10
     subq = (
@@ -73,6 +100,19 @@ def period_summary(db: Session, date_from: date, date_to: date) -> dict:
     )
     revenue = Decimal(str(revenue or 0))
 
+    # Trừ doanh thu trả hàng trong khoảng thời gian
+    returned_revenue = (
+        db.query(func.coalesce(func.sum(SaleReturnItem.quantity * SaleItem.sale_price), 0))
+        .join(SaleReturn, SaleReturnItem.return_id == SaleReturn.id)
+        .join(SaleItem, SaleReturnItem.sale_item_id == SaleItem.id)
+        .filter(
+            func.date(SaleReturn.created_at) >= date_from,
+            func.date(SaleReturn.created_at) <= date_to
+        )
+        .scalar()
+    )
+    revenue -= Decimal(str(returned_revenue or 0))
+
     profit_row = (
         db.query(
             func.coalesce(
@@ -91,6 +131,26 @@ def period_summary(db: Session, date_from: date, date_to: date) -> dict:
         .scalar()
     )
     profit = Decimal(str(profit_row or 0))
+
+    # Trừ lợi nhuận bị mất do trả hàng trong khoảng thời gian
+    returned_profit = (
+        db.query(
+            func.coalesce(
+                func.sum(
+                    (SaleItem.sale_price - SaleItem.import_price_snapshot) * SaleReturnItem.quantity
+                ),
+                0,
+            )
+        )
+        .join(SaleReturn, SaleReturnItem.return_id == SaleReturn.id)
+        .join(SaleItem, SaleReturnItem.sale_item_id == SaleItem.id)
+        .filter(
+            func.date(SaleReturn.created_at) >= date_from,
+            func.date(SaleReturn.created_at) <= date_to
+        )
+        .scalar()
+    )
+    profit -= Decimal(str(returned_profit or 0))
 
     sale_count = (
         db.query(func.count(Sale.id))

@@ -10,7 +10,7 @@ from app.models import SaleStatus
 class SaleDraftLine(BaseModel):
     product_id: int
     batch_id: int | None = None
-    quantity: float = Field(..., gt=0)
+    quantity: int = Field(..., gt=0)
     sale_price: Decimal = Field(..., ge=0)
 
 
@@ -27,7 +27,7 @@ class SaleItemOut(BaseModel):
     product_id: int
     product_name: str = ""
     batch_id: int | None
-    quantity: float
+    quantity: int
     sale_price: Decimal
     import_price_snapshot: Decimal | None
 
