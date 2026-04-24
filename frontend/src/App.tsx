@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { NavLink, Route, Routes } from 'react-router-dom'
 import BackupPage from './pages/BackupPage'
 import Dashboard from './pages/Dashboard'
@@ -27,6 +27,18 @@ const nav = [
 
 export default function App() {
   const [isUnlocked, setIsUnlocked] = useState(false)
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    return (localStorage.getItem('theme') as 'light' | 'dark') || 'dark'
+  })
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+    localStorage.setItem('theme', theme)
+  }, [theme])
 
   if (!isUnlocked) {
     return <LockScreen onUnlock={() => setIsUnlocked(true)} />
@@ -55,6 +67,13 @@ export default function App() {
                 {n.label}
               </NavLink>
             ))}
+            <button
+              onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+              className="ml-2 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              title="Đổi giao diện Sáng/Tối"
+            >
+              {theme === 'dark' ? '🌞 Sáng' : '🌙 Tối'}
+            </button>
           </nav>
         </div>
       </header>

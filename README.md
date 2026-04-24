@@ -1,4 +1,4 @@
-# Quản lý kho & POS (hiệu thuốc)
+# GTA Launcher — Quản lý kho & POS
 
 Triển khai: FastAPI + SQLite + Alembic (backend), React + Vite + Tailwind (frontend), **Tauri 2** (desktop shell).
 
@@ -35,9 +35,9 @@ Mở `http://127.0.0.1:5173`. hoặc `http://localhost:5173/`
 
 | Màn hình | Route | Mô tả |
 |----------|-------|-------|
-| Dashboard | `/` | Lối tắt nghiệp vụ nhanh, thống kê hôm nay, tồn thấp & lô sắp hết hạn |
+| Dashboard | `/` | Lối tắt nghiệp vụ nhanh, thống kê hôm nay, tồn thấp & lô sắp hết hạn. **Biểu đồ doanh thu 7 ngày & top SP bán chạy**. |
 | POS | `/pos` | Giao diện bán hàng nhanh, quản lý giỏ, lưu phiếu nháp. Giỏ hàng hiển thị rộng hơn. |
-| Hóa đơn | `/invoices` | Quản lý hóa đơn với bộ lọc đa tiêu chí. **Hỗ trợ phân trang** và popup chi tiết chống tràn dữ liệu. |
+| Hóa đơn | `/invoices` | Quản lý hóa đơn với bộ lọc đa tiêu chí. **Tìm kiếm theo tên sản phẩm**, phân trang và popup chi tiết. |
 | Sản phẩm | `/products` | Thao tác Import/Export **EXCEL**. **Hệ thống phân trang mới** (10-100 dòng/trang). |
 | Kho | `/inventory` | Bảng tồn kho chi tiết, FEFO, giá vốn. **Hệ thống phân trang mới**. |
 | Nhập kho | `/import` | Tạo phiếu, ghi nợ, nhập từ Excel. **Thêm nhanh NCC/SP**, **Tự động lưu bản nháp** tránh mất dữ liệu. |
@@ -47,6 +47,20 @@ Mở `http://127.0.0.1:5173`. hoặc `http://localhost:5173/`
 
 ---
 
+## Ghi chú hệ thống v0.3.6
+- **Xóa phiếu nhập an toàn**: Hỗ trợ xóa phiếu nhập kho cùng với việc hoàn trả tự động số lượng tồn kho. Có cơ chế chặn xóa nếu sản phẩm trong phiếu đã bị xuất bán.
+- **Tính tổng tiền tự động**: Hiển thị tổng tiền nhập trực tiếp khi thêm sản phẩm vào phiếu nhập.
+- **Tối ưu hiển thị và thao tác**: Hiển thị rõ Đơn vị tính (ĐVT) ngay trên phiếu nhập và khắc phục tình trạng tắt ngẫu nhiên các form thêm nhanh do lỡ tay kéo chuột ra ngoài.
+- **Giao diện Sáng/Tối (Dark/Light Theme)**: Tích hợp nút chuyển đổi giao diện Sáng/Tối trực tiếp trên Menu, tự động ghi nhớ tùy chọn của người dùng.
+
+---
+
+## Ghi chú hệ thống v0.3.7
+- **Biểu đồ Dashboard**: Thêm biểu đồ cột Doanh thu 7 ngày gần nhất và biểu đồ tròn Top sản phẩm bán chạy (30 ngày) trực tiếp trên trang chủ.
+- **Tìm kiếm SP trong Hóa đơn**: Hỗ trợ lọc hóa đơn theo tên sản phẩm đã bán.
+- **Đồng bộ tên ứng dụng**: Thay thế toàn bộ tên cũ "Hiệu thuốc & POS" thành "GTA Launcher" xuyên suốt ứng dụng.
+
+---
 ## Ghi chú hệ thống v0.3.5
 - **Thêm nhanh (Quick Add)**: Cho phép tạo nhanh Nhà cung cấp và Sản phẩm (danh mục) ngay tại màn hình Nhập kho, giúp quy trình làm việc không bị gián đoạn.
 - **Ghi nhớ bản nháp (Draft Persistence)**: Toàn bộ dữ liệu đang nhập kho được tự động lưu vào `localStorage`. Hệ thống sẽ nhắc khôi phục nếu bạn vô tình reload hoặc chuyển trang khi chưa lưu phiếu.
@@ -69,7 +83,7 @@ Tóm tắt 3 bước (chạy trên Windows):
 powershell -ExecutionPolicy Bypass -File build-release.ps1
 ```
 
-**Output**: `frontend\src-tauri\target\release\bundle\nsis\Warehouse POS_0.2.2_x64-setup.exe`
+**Output**: `frontend\src-tauri\target\release\bundle\nsis\GTA Launcher_<version>_x64-setup.exe`
 
 **Data người dùng** lưu tại: `%APPDATA%\vn.local.warehouse.pos\app.db`
 

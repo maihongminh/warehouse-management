@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 import openpyxl
 
 from app.db.session import get_db
-from app.models import ImportItem, ImportReceipt, Product, Supplier
+from app.models import Batch, ImportItem, ImportReceipt, InventoryChangeType, InventoryLog, Product, Supplier
 from app.schemas.import_receipt import (
     ImportReceiptCreate,
     ImportReceiptListItem,
@@ -135,6 +135,57 @@ def pay_debt(receipt_id: int, db: Session = Depends(get_db)) -> dict:
     return _build_receipt_out(r_full)
 
 
+@router.delete("/{receipt_id}")
+def delete_receipt(receipt_id: int, db: Session = Depends(get_db)):
+    r = (
+        db.query(ImportReceipt)
+        .options(selectinload(ImportReceipt.items))
+        .filter(ImportReceipt.id == receipt_id)
+        .first()
+    )
+    if not r:
+        raise HTTPException(status_code=404, detail="Không tìm thấy phiếu nhập")
+    
+    # Check if we can delete (quantity_remaining >= item.quantity)
+    for item in r.items:
+        batch = db.query(Batch).filter(Batch.id == item.batch_id).first()
+        if batch:
+            if batch.quantity_remaining < item.quantity:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Không thể xóa phiếu vì một phần sản phẩm (ID: {item.product_id}) đã xuất bán. Tồn kho lô hiện tại: {batch.quantity_remaining}, nhập ban đầu: {item.quantity}."
+                )
+    
+    # If all valid, process deletion
+    batches_to_check = []
+    for item in r.items:
+        batch = db.query(Batch).filter(Batch.id == item.batch_id).first()
+        if batch:
+            batch.quantity_remaining -= item.quantity
+            if batch.quantity_remaining == 0:
+                batches_to_check.append(batch)
+    
+    # Delete related InventoryLogs
+    db.query(InventoryLog).filter(
+        InventoryLog.ref_id == receipt_id,
+        InventoryLog.type == InventoryChangeType.import_
+    ).delete()
+    
+    # Finally delete the receipt itself (items will cascade delete)
+    db.delete(r)
+    db.flush()
+    
+    # Clean up empty orphan batches
+    for b in batches_to_check:
+        logs_count = db.query(InventoryLog).filter(InventoryLog.batch_id == b.id).count()
+        if logs_count == 0:
+            db.delete(b)
+            
+    db.commit()
+    
+    return {"detail": "Đã xóa phiếu nhập thành công"}
+
+
 
 def _build_receipt_out(r: ImportReceipt) -> dict:
     items = []
@@ -256,6 +307,7 @@ def parse_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
             lines.append({
                 "product_id": product.id,
                 "product_summary": f"{product.name} · {product.sku}",
+                "unit": product.unit,
                 "quantity": str(qty_val),  # gửi dạng int string
                 "import_price": str(imp_price),
                 "batch_code": batch,

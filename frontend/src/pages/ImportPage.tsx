@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import type { FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { apiGet, apiPatch, apiPost, apiUpload } from '../api'
+import { apiGet, apiPatch, apiPost, apiUpload, apiDelete } from '../api'
 import type { ImportReceiptListItem, ImportReceiptOut, PaginatedResponse, Product, Supplier } from '../types'
 import Pagination from '../components/Pagination'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -13,6 +13,7 @@ type Line = {
   product_summary: string
   pickQuery: string
   quantity: string
+  unit: string
   import_price: string
   batch_code: string
   expiry_date: string
@@ -24,6 +25,7 @@ const newLine = (): Line => ({
   product_summary: '',
   pickQuery: '',
   quantity: '1',
+  unit: '',
   import_price: '0',
   batch_code: '',
   expiry_date: '',
@@ -93,6 +95,7 @@ export default function ImportPage() {
           key: crypto.randomUUID(),
           product_id: row.product_id,
           product_summary: row.product_summary,
+          unit: row.unit || '',
           pickQuery: '',
           quantity: row.quantity,
           import_price: row.import_price,
@@ -135,9 +138,12 @@ export default function ImportPage() {
   const [payTarget, setPayTarget] = useState<number | null>(null)
   const [payLoading, setPayLoading] = useState(false)
 
-  // Detail modal
   const [detailReceipt, setDetailReceipt] = useState<ImportReceiptOut | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+
+  // Delete confirm
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   // Load suppliers
   const loadSuppliers = useCallback(() => {
@@ -222,6 +228,7 @@ export default function ImportPage() {
       const lineData = {
         product_id: p.id,
         product_summary: `${p.name} · ${p.sku}`,
+        unit: p.unit || '',
         pickQuery: '',
         quantity: '1',
         import_price: String(p.default_import_price ?? '0'),
@@ -253,6 +260,7 @@ export default function ImportPage() {
               ...first,
               product_id: p.id,
               product_summary: `${p.name} · ${p.sku}`,
+              unit: p.unit || '',
               pickQuery: '',
               import_price: String(p.default_import_price ?? '0'),
             },
@@ -405,6 +413,21 @@ export default function ImportPage() {
       setErr(ex instanceof Error ? ex.message : String(ex))
     } finally {
       setPayLoading(false)
+    }
+  }
+
+  const onDeleteConfirm = async () => {
+    if (!deleteTarget) return
+    setDeleteLoading(true)
+    try {
+      await apiDelete(`/import-receipts/${deleteTarget}`)
+      setDeleteTarget(null)
+      loadHistory(activeFilter)
+      setMsg(`✅ Đã xóa thành công phiếu nhập #${deleteTarget}`)
+    } catch (ex: any) {
+      setErr(ex.message)
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -596,6 +619,15 @@ export default function ImportPage() {
             ))}
           </div>
 
+          <div className="flex justify-end pt-4">
+            <div className="text-right">
+              <span className="text-zinc-500 dark:text-zinc-400 mr-4 text-sm font-medium">Tổng tiền nhập:</span>
+              <span className="text-xl font-bold text-emerald-700 dark:text-emerald-400">
+                {fCurrency(lines.reduce((acc, l) => acc + (Number(l.import_price || 0) * Number(l.quantity || 1)), 0))} ₫
+              </span>
+            </div>
+          </div>
+
           <div className="flex flex-wrap gap-2 pt-2">
             <button
               type="button"
@@ -764,13 +796,22 @@ export default function ImportPage() {
                       )}
                     </td>
                     <td className="px-3 py-2 text-center align-middle">
-                      <button
-                        type="button"
-                        onClick={() => openDetail(r.id)}
-                        className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-white hover:bg-zinc-700 dark:bg-zinc-700 dark:hover:bg-zinc-600"
-                      >
-                        Xem
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openDetail(r.id)}
+                          className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-white hover:bg-zinc-700 dark:bg-zinc-700 dark:hover:bg-zinc-600"
+                        >
+                          Xem
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(r.id)}
+                          className="rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
+                        >
+                          Xóa
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -811,6 +852,16 @@ export default function ImportPage() {
         confirmLabel={payLoading ? 'Đang xử lý...' : 'Xác nhận trả nợ'}
         onConfirm={onPayDebtConfirm}
         onCancel={() => setPayTarget(null)}
+      />
+
+      {/* Delete Confirm Dialog */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Xác nhận xóa phiếu nhập"
+        message={deleteTarget ? `Bạn có chắc chắn muốn xóa phiếu nhập #${deleteTarget}?\nHệ thống sẽ trừ lại tồn kho các sản phẩm trong phiếu.\nHành động này không thể hoàn tác.` : ''}
+        confirmLabel={deleteLoading ? 'Đang xóa...' : 'Xác nhận xóa'}
+        onConfirm={onDeleteConfirm}
+        onCancel={() => setDeleteTarget(null)}
       />
 
       {/* Delete Supplier Confirm - moved to SuppliersPage */}
@@ -931,7 +982,7 @@ function QuickProductModal({
 }: any) {
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-zinc-900" onClick={e => e.stopPropagation()}>
         <h3 className="mb-4 text-lg font-bold text-zinc-900 dark:text-zinc-100">Thêm nhanh Sản phẩm</h3>
         <form onSubmit={onSubmit} className="space-y-4">
@@ -1039,15 +1090,21 @@ function ImportLineRow({
               type="number"
               min="1"
               step="1"
-              className="min-w-0 flex-1 rounded border border-zinc-300 px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900"
+              className={`min-w-0 flex-1 border border-zinc-300 px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900 ${line.unit ? 'rounded-l' : 'rounded'}`}
               value={line.quantity}
               onChange={(e) => {
                 const v = e.target.value
                 setLines((L) => L.map((x) => (x.key === line.key ? { ...x, quantity: v } : x)))
               }}
             />
+            {line.unit && (
+              <span className="flex items-center rounded-r border border-l-0 border-zinc-300 bg-zinc-50 px-2 text-zinc-500 dark:border-zinc-600 dark:bg-zinc-800">
+                {line.unit}
+              </span>
+            )}
           </div>
         </label>
+
         <label className="flex flex-col gap-1 text-xs">
           Giá nhập
           <input
@@ -1099,7 +1156,7 @@ function QuickSupplierModal({
 }: any) {
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-zinc-900" onClick={e => e.stopPropagation()}>
         <h3 className="mb-4 text-lg font-bold text-zinc-900 dark:text-zinc-100">Thêm nhanh Nhà CC</h3>
         <form onSubmit={onSubmit} className="space-y-4">

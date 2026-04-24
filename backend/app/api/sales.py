@@ -5,7 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
-from app.models import Sale, SaleItem, SaleReturn, SaleReturnItem, SaleStatus
+from app.models import Product, Sale, SaleItem, SaleReturn, SaleReturnItem, SaleStatus
 from app.schemas.sale import SaleCompleteOut, SaleCreate, SaleOut, SaleWithItemsOut
 from app.schemas.sale_return import SaleReturnCreate, SaleReturnOut
 from app.schemas.pagination import PaginatedResponse
@@ -46,6 +46,7 @@ def list_sales(
     status: SaleStatus | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
+    product_name: str | None = Query(None, description="Tìm theo tên sản phẩm trong hóa đơn"),
     page: int = Query(1, ge=1),
     size: int = Query(50, ge=1, le=100),
 ) -> dict:
@@ -56,6 +57,12 @@ def list_sales(
         q = q.filter(Sale.date >= date_from)
     if date_to is not None:
         q = q.filter(Sale.date <= date_to)
+    if product_name:
+        # JOIN SaleItem → Product, lọc theo tên SP, distinct để tránh trùng
+        q = q.join(SaleItem, SaleItem.sale_id == Sale.id)\
+             .join(Product, Product.id == SaleItem.product_id)\
+             .filter(Product.name.ilike(f"%{product_name}%"))\
+             .distinct()
 
     total = q.count()
     total_pages = (total + size - 1) // size

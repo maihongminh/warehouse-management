@@ -39,6 +39,7 @@ export default function InvoicesPage() {
   const [detailLoading, setDetailLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [productSearch, setProductSearch] = useState('')
 
   // Return functionality
   const [showReturnModal, setShowReturnModal] = useState(false)
@@ -59,11 +60,12 @@ export default function InvoicesPage() {
     params.set('page', String(targetPage))
     params.set('size', String(targetSize))
     if (statusFilter) params.set('status', statusFilter)
+    if (productSearch.trim()) params.set('product_name', productSearch.trim())
     apiGet<PaginatedResponse<SaleRow>>(`/sales?${params.toString()}`)
       .then(setPaged)
       .catch((e: Error) => setErr(e.message))
       .finally(() => setLoading(false))
-  }, [from, to, statusFilter, page, pageSize])
+  }, [from, to, statusFilter, productSearch, page, pageSize])
 
   useEffect(() => {
     load(page, pageSize)
@@ -160,6 +162,16 @@ export default function InvoicesPage() {
             <option value="draft">Nháp</option>
             <option value="cancelled">Đã hủy</option>
           </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          Tìm sản phẩm
+          <input
+            type="text"
+            className="rounded-lg border border-zinc-300 px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900"
+            placeholder="Tên sản phẩm…"
+            value={productSearch}
+            onChange={(e) => setProductSearch(e.target.value)}
+          />
         </label>
         <button type="submit" className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white hover:bg-emerald-700">
           Làm mới

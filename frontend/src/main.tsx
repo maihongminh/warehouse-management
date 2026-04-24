@@ -47,7 +47,7 @@ function Root() {
       <div className="loading-screen">
         <div className="loading-box">
           <div className="loading-spinner" />
-          <p className="loading-title">Hiệu thuốc · Kho &amp; POS</p>
+          <p className="loading-title">GTA Launcher</p>
           <p className="loading-sub">Đang khởi động{'.'.repeat((attempt % 3) + 1)}</p>
         </div>
       </div>

@@ -3,7 +3,7 @@
 # Tu dong build wm-backend.exe (PyInstaller) -> copy sidecar -> build Tauri installer
 #
 # Ket qua:
-#   frontend\src-tauri\target\release\bundle\nsis\Warehouse POS_x.x.x_x64-setup.exe
+#   frontend\src-tauri\target\release\bundle\nsis\GTA Launcher_x.x.x_x64-setup.exe
 
 $ErrorActionPreference = "Stop"
 
