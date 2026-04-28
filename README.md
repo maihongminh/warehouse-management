@@ -55,6 +55,11 @@ Mở `http://127.0.0.1:5173`. hoặc `http://localhost:5173/`
 
 ---
 
+## Ghi chú hệ thống v0.4.0
+- **Lưu nháp giỏ hàng POS**: Tính năng tự động lưu nháp giỏ hàng (Draft Persistence) khi thao tác bán hàng trên màn hình POS. Đảm bảo dữ liệu không bị mất khi lỡ tay F5 hoặc chuyển qua màn hình khác.
+
+---
+
 ## Ghi chú hệ thống v0.3.7
 - **Biểu đồ Dashboard**: Thêm biểu đồ cột Doanh thu 7 ngày gần nhất và biểu đồ tròn Top sản phẩm bán chạy (30 ngày) trực tiếp trên trang chủ.
 - **Tìm kiếm SP trong Hóa đơn**: Hỗ trợ lọc hóa đơn theo tên sản phẩm đã bán.

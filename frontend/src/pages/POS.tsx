@@ -50,6 +50,49 @@ export default function POS() {
   const [drafts, setDrafts] = useState<SaleRow[]>([])
   const [showDrafts, setShowDrafts] = useState(false)
 
+  // Draft persistence (local storage)
+  const [hasDraft, setHasDraft] = useState(false)
+  const DRAFT_KEY = 'wm_pos_draft'
+
+  useEffect(() => {
+    const saved = localStorage.getItem(DRAFT_KEY)
+    if (saved) {
+      try {
+        const data = JSON.parse(saved)
+        if (Array.isArray(data) && data.length > 0) {
+          setHasDraft(true)
+        }
+      } catch (e) {
+        localStorage.removeItem(DRAFT_KEY)
+      }
+    }
+  }, [])
+
+  const restoreDraft = () => {
+    const saved = localStorage.getItem(DRAFT_KEY)
+    if (saved) {
+      try {
+        setCart(JSON.parse(saved))
+      } catch (e) {}
+    }
+    setHasDraft(false)
+  }
+
+  const discardDraft = () => {
+    localStorage.removeItem(DRAFT_KEY)
+    setHasDraft(false)
+  }
+
+  // Save draft on changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (cart.length > 0) {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(cart))
+      }
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [cart])
+
   useEffect(() => {
     const qs = q ? `?q=${encodeURIComponent(q)}&size=50` : '?size=50'
     apiGet<PaginatedResponse<PosProduct>>(`/inventory/products${qs}`)
@@ -107,6 +150,8 @@ export default function POS() {
     setCart([])
     setDraftSale(null)
     setResultSale(null)
+    localStorage.removeItem(DRAFT_KEY)
+    setHasDraft(false)
   }
 
   // Tổng cộng = sale_price × quantity
@@ -167,6 +212,8 @@ export default function POS() {
       setResultSale(completed.sale)
       setDraftSale(null)
       setCart([])
+      localStorage.removeItem(DRAFT_KEY)
+      setHasDraft(false)
     } catch (e) {
       setErr((e as Error).message)
     } finally {
@@ -184,6 +231,8 @@ export default function POS() {
       setResultSale(cancelled)
       setDraftSale(null)
       setCart([])
+      localStorage.removeItem(DRAFT_KEY)
+      setHasDraft(false)
     } catch (e) {
       setErr((e as Error).message)
     } finally {
@@ -201,6 +250,8 @@ export default function POS() {
       setCart([]) // cart sẽ empty, nhưng draft đã có, có thể checkout
       setShowDrafts(false)
       setResultSale(null)
+      localStorage.removeItem(DRAFT_KEY)
+      setHasDraft(false)
     } catch (e) {
       setErr((e as Error).message)
     } finally {
@@ -223,6 +274,28 @@ export default function POS() {
           </button>
         </div>
       </div>
+
+      {hasDraft && (
+        <div className="mb-2 flex items-center justify-between rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+          <div className="flex items-center gap-2">
+            <span>⚠️ Bạn có giỏ hàng chưa thanh toán từ trước.</span>
+            <button
+              type="button"
+              onClick={restoreDraft}
+              className="font-bold underline hover:text-amber-600"
+            >
+              Khôi phục ngay
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={discardDraft}
+            className="text-xs text-zinc-400 hover:text-zinc-600 underline"
+          >
+            Bỏ qua
+          </button>
+        </div>
+      )}
 
       {/* Drafts panel */}
       {showDrafts && (
